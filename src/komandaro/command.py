@@ -15,9 +15,11 @@ from komandaro.interfaces import (
     ISimpleCommand,
     IUndoneCommand,
 )
+from komandaro.schema import validate
 
-DoFunction = Callable[[Any], Any]
-UndoFunction = Callable[[Any, Any], Any]
+DoFunction = Callable[..., Any]
+UndoFunction = Callable[..., Any]
+SnapshotFunction = Callable[..., Any]
 
 
 class CommandStateError(RuntimeError):
@@ -46,20 +48,48 @@ class BaseCommand:
     Subclasses implement :meth:`_do`, :meth:`_undo` and :meth:`_redo`; the
     public ``execute``/``undo``/``redo`` check the state, delegate, then
     move the instance to its next state.
+
+    Class attributes describing the command (what a registry exposes):
+
+    * ``id`` — stable identifier used by registries and front ends
+      (defaults to the lower-cased class name without ``Command``);
+    * ``name`` / ``description`` — translatable labels;
+    * ``schema`` — an interface of ``zope.schema`` fields describing the
+      accepted keyword parameters, or ``None`` to accept anything.
+
+    Instances are created with the context and the parameters:
+    ``cmd = Add(context, amount=5)``.  Parameters are validated against
+    ``schema`` at that moment (:class:`~komandaro.schema.ParameterError`)
+    and exposed as ``cmd.params``.
+
+    Before ``_do()`` runs, :meth:`_snapshot` is called and its value kept
+    in ``self.memento`` so that ``_undo()`` can restore state that cannot
+    be derived from the result alone.
     """
 
+    id: str = ""
     name: str = _("Unnamed command")
     description: str = ""
+    schema: Any = None
 
-    def __init__(self, context: Any) -> None:
+    def __init__(self, context: Any, **params: Any) -> None:
         self.context = context
+        self.params: dict[str, Any] = validate(self.schema, params)
         self.result: Any = None
+        self.memento: Any = None
         directlyProvides(self, ICommand)
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        if not cls.__dict__.get("id"):
+            base = cls.__name__.removesuffix("Command") or cls.__name__
+            cls.id = base.lower()
 
     # -- public life cycle ---------------------------------------------------
 
     def execute(self) -> Any:
         self._require(ICommand, _("Command %(name)s has already been executed"))
+        self.memento = self._snapshot()
         self.result = self._do()
         directlyProvides(self, IExecutedCommand)
         return self.result
@@ -96,6 +126,10 @@ class BaseCommand:
 
     # -- to be implemented by subclasses -------------------------------------
 
+    def _snapshot(self) -> Any:
+        """Capture whatever ``_undo`` will need; called before ``_do``."""
+        return None
+
     def _do(self) -> Any:
         raise NotImplementedError
 
@@ -117,21 +151,35 @@ class BaseCommand:
 
 @implementer(ISimpleCommand)
 class SimpleCommand(BaseCommand):
-    """A command whose behaviour is given by two functions.
+    """A command whose behaviour is given by plain functions.
 
-    ``do_it(context)`` performs the operation and returns a result;
-    ``undo_it(context, result)`` reverts it.  Both are stored as static
-    methods so that they are *not* bound to the instance when called.
+    * ``do_it(context, **params)`` performs the operation and returns a result;
+    * ``undo_it(context, state, **params)`` reverts it, where *state* is the
+      memento returned by ``snapshot_it`` when one is defined, and the
+      result of ``do_it`` otherwise;
+    * ``snapshot_it(context, **params)`` (optional) captures state before
+      execution, for operations whose inverse cannot be derived from the
+      result.
+
+    All three are stored as static methods so that they are *not* bound to
+    the instance when called.
     """
 
-    do_it: Callable[..., Any] = staticmethod(lambda context: None)
-    undo_it: Callable[..., Any] = staticmethod(lambda context, result: None)
+    do_it: Callable[..., Any] = staticmethod(lambda context, **params: None)
+    undo_it: Callable[..., Any] = staticmethod(lambda context, state, **params: None)
+    snapshot_it: Callable[..., Any] | None = None
+
+    def _snapshot(self) -> Any:
+        if self.snapshot_it is None:
+            return None
+        return self.snapshot_it(self.context, **self.params)
 
     def _do(self) -> Any:
-        return self.do_it(self.context)
+        return self.do_it(self.context, **self.params)
 
     def _undo(self) -> Any:
-        return self.undo_it(self.context, self.result)
+        state = self.result if self.snapshot_it is None else self.memento
+        return self.undo_it(self.context, state, **self.params)
 
 
 def SimpleCommandFactory(  # noqa: N802 — historical name kept on purpose
@@ -140,22 +188,33 @@ def SimpleCommandFactory(  # noqa: N802 — historical name kept on purpose
     name: str | Message,
     description: str | Message = "",
     class_name: str | None = None,
+    *,
+    schema: Any = None,
+    snapshot: SnapshotFunction | None = None,
+    id: str | None = None,
 ) -> type[SimpleCommand]:
     """Build a :class:`SimpleCommand` subclass from a do/undo pair.
 
     The returned *class* is instantiated once per execution with the
-    context: ``cmd = MyCommand(context); cmd.execute()``.
+    context and the parameters: ``cmd = MyCommand(context, amount=5)``.
 
     *name* and *description* should be :class:`~komandaro.i18n.Message`
     objects (``_("Add")``) so that front ends can translate them.
+    *schema* is an interface of ``zope.schema`` fields; *snapshot* an
+    optional ``snapshot(context, **params)`` memento function; *id* the
+    registry identifier (derived from the class name by default).
     """
-    attrs = {
+    attrs: dict[str, Any] = {
         "name": name,
         "description": description,
+        "schema": schema,
         "do_it": staticmethod(do_function),
         "undo_it": staticmethod(undo_function),
+        "snapshot_it": staticmethod(snapshot) if snapshot is not None else None,
         "__doc__": str(description) or str(name),
     }
+    if id:
+        attrs["id"] = id
     cls_name = class_name or "".join(part.capitalize() for part in str(name).split()) or "Command"
     return type(cls_name + "Command", (SimpleCommand,), attrs)
 

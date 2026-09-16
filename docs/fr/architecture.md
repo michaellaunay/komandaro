@@ -30,18 +30,20 @@ flowchart LR
         API[JSON / MCP]
     end
     subgraph core [Cœur Komandaro]
-        REG[(Registre de commandes*)]
-        INV[Invocateur*<br/>historique, annuler/rétablir]
+        REG[(Registre<br/>ids, groupes, schémas)]
+        INV[Invocateur<br/>historique, annuler/rétablir, événements]
         CMD[Commandes<br/>SimpleCommand, Macro]
     end
     CTX[(Contexte<br/>état de l'application)]
-    CLI & HTML & TUI & API --> REG --> INV --> CMD --> CTX
-    classDef future stroke-dasharray: 5 5
-    class REG,INV future
+    CLI & HTML & TUI & API --> REG
+    CLI & HTML & TUI & API --> INV --> CMD --> CTX
+    REG -. décrit .-> CLI & HTML & TUI & API
 ```
 
-Les boîtes marquées `*` sont prévues (voir §6) ; la phase 1 livre la boîte
-`Commandes` et ses fondations.
+Les frontaux *lisent* le registre pour se construire (une sous-commande par
+entrée, un formulaire par schéma) et *pilotent* l'invocateur pour exécuter
+ce que l'utilisateur a choisi. Les phases 1 et 2 livrent le cœur ; les
+frontaux sont la phase 3 (§8).
 
 ## 2. Organisation du paquet
 
@@ -50,6 +52,9 @@ src/komandaro/
 ├── __init__.py      API publique et __version__
 ├── interfaces.py    contrats zope.interface (genres et états)
 ├── command.py       BaseCommand, SimpleCommand(Factory), Macro, CommandStateError
+├── schema.py        schémas de paramètres : validate, describe, ParameterError
+├── registry.py      Registry, Entry, RegistryError
+├── invoker.py       Invoker, Event, EventKind, HistoryError
 ├── i18n.py          Message, make_gettext, translate
 └── locale/          komandaro.pot + <lang>/LC_MESSAGES/komandaro.po
 tests/               suite pytest (les doctests du README sont exécutés aussi)
@@ -120,19 +125,25 @@ classDiagram
     IBaseCommand <|-- IMacro
 
     class BaseCommand {
+        id : str
+        schema : Interface
+        params : dict
+        memento
         +execute()
         +undo()
         +redo()
         +is_ready
         +is_executed
         +is_undone
+        #_snapshot()
         #_do()
         #_undo()
         #_redo()
     }
     class SimpleCommand {
-        do_it(context)$
-        undo_it(context, result)$
+        do_it(context, **params)$
+        undo_it(context, state, **params)$
+        snapshot_it(context, **params)$
     }
     class Macro {
         +commands
@@ -193,10 +204,14 @@ de 2014 stockait des fonctions nues en attributs de classe, que Python
 transformait en méthodes liées, cassant l'appel. La classe est ce qu'un
 registre exposera ; les instances sont créées à chaque exécution.
 
-`undo(context, result)` reçoit la valeur retournée par `do(context)`. Pour
-des opérations simples cela suffit ; les opérations qui ont besoin d'un
-instantané de l'état pris *avant* exécution recevront un crochet mémento
-en phase 2.
+`do(context, **params)` reçoit les paramètres validés (§5).
+`undo(context, state, **params)` reçoit comme *state* la valeur retournée
+par `do` — ou, si la fabrique a reçu une fonction
+`snapshot(context, **params)`, le **mémento** capturé par cette fonction
+juste avant l'exécution. `BaseCommand._snapshot()` est le crochet général ;
+sa valeur est conservée dans `command.memento` et prise une seule fois, à
+la première exécution, de sorte que `redo()` restaure le même point de
+départ.
 
 ### Macro
 
@@ -228,7 +243,139 @@ sequenceDiagram
 
 Les macros s'imbriquent : une macro est une `BaseCommand` comme une autre.
 
-## 5. Internationalisation
+## 5. Décrire les commandes : schémas de paramètres
+
+Le prototype de 2014 faisait lire aux commandes ce dont elles avaient
+besoin dans le contexte (`context.left_operand`). Rien n'indiquait à un
+frontal quoi demander à l'utilisateur. Komandaro sépare les deux :
+
+* le **contexte** est l'état de l'application sur lequel la commande agit ;
+* les **paramètres** sont la saisie de l'utilisateur pour cette exécution,
+  déclarés par un **schéma** — une interface dont les attributs sont des
+  champs `zope.schema` (`Int`, `TextLine`, `Choice`, …) avec un titre
+  traduisible, une description, `required` et un `default`.
+
+```python
+class IAddParameters(Interface):
+    amount = Int(title=_("Amount"), description=_("Value to add"), min=1)
+
+
+Add = SimpleCommandFactory(add, undo_add, _("Add"), schema=IAddParameters, id="add")
+cmd = Add(context, amount=5)  # validé ici
+```
+
+`schema.validate(schema, params)` s'exécute à l'instanciation : noms
+inconnus, valeurs obligatoires manquantes et valeurs invalides sont tous
+collectés et levés ensemble dans une `ParameterError` dont les `issues`
+portent des messages traduisibles — un formulaire peut afficher tous les
+problèmes d'un coup. Les valeurs par défaut comblent les paramètres
+optionnels absents. Avec `schema=None`, tout paramètre est accepté (le
+comportement de la phase 1).
+
+`schema.describe(schema)` renvoie des enregistrements `ParameterInfo`
+ordonnés (nom, type de champ, titre, description, obligatoire, défaut,
+choix). C'est la source unique dont chaque frontal dérive :
+
+| Frontal | dérive de `ParameterInfo` |
+|---|---|
+| CLI | `--amount 5`, conversion de type, texte du `--help` |
+| HTML | `<input type="number" min="1">`, libellé, messages de validation |
+| JSON / MCP | schéma JSON de l'entrée de l'outil |
+
+## 6. Registre et invocateur
+
+```mermaid
+classDiagram
+    class Registry {
+        +register(command, id, group, tags, replace)
+        +command(id, group, tags) décorateur
+        +load_entry_points(group)
+        +get(id) Entry
+        +create(id, context, **params) BaseCommand
+        +groups
+        +find(group, tag)
+    }
+    class Entry {
+        id : str
+        command : type
+        group : str
+        tags : frozenset
+        +name
+        +description
+        +parameters : list~ParameterInfo~
+    }
+    class Invoker {
+        context
+        registry : Registry
+        limit : int
+        +run(command_or_id, **params)
+        +undo()
+        +redo()
+        +clear()
+        +subscribe(handler) unsubscribe
+        +history
+        +undone
+        +can_undo
+        +can_redo
+    }
+    class Event {
+        kind : EventKind
+        command : BaseCommand
+        error : BaseException
+        at : datetime
+    }
+    Registry "1" o-- "*" Entry
+    Entry --> BaseCommand : classe
+    Invoker --> Registry : optionnel
+    Invoker "1" o-- "*" BaseCommand : historique
+    Invoker ..> Event : émet
+```
+
+Le **registre** associe des identifiants stables à des *classes* de
+commandes, dans l'ordre d'enregistrement, avec un groupe et des étiquettes
+optionnels. On le remplit par `register()`, par le décorateur
+`@registry.command()`, ou depuis les entry points `importlib.metadata`
+pour que d'autres paquets contribuent des commandes. `Entry` expose ce
+qu'un frontal doit connaître pour afficher un menu : id, nom et
+description traduisibles, paramètres décrits.
+
+L'**invocateur** est ce que les frontaux pilotent. `run(id, **params)`
+crée la commande via le registre (ou prend une instance), l'exécute,
+l'empile sur la pile d'annulation et vide la pile de rétablissement ;
+`undo()`/`redo()` déplacent les commandes entre les deux piles. Chaque
+transition — et chaque échec — émet un `Event` vers les abonnés : une
+interface se rafraîchit, un journal d'audit enregistre, une couche de
+persistance stocke. Une exécution échouée n'est pas enregistrée ; une
+annulation échouée laisse la commande dans l'historique pour que rien ne
+se perde en silence.
+
+```mermaid
+sequenceDiagram
+    participant U as Utilisateur
+    participant F as Frontal
+    participant R as Registre
+    participant I as Invocateur
+    participant C as Commande
+    participant X as Contexte
+    F->>R: parcourt les entrées, describe(schema)
+    R-->>F: menu / options / formulaire
+    U->>F: choisit "add", amount=5
+    F->>I: run("add", amount=5)
+    I->>R: create("add", context, amount=5)
+    R->>C: AddCommand(context, amount=5)  — validation
+    C-->>I: instance (Prête)
+    I->>C: execute()
+    C->>X: modifie
+    C-->>I: résultat
+    I-->>F: Event(EXECUTED), résultat
+    U->>F: annuler
+    F->>I: undo()
+    I->>C: undo()
+    C->>X: restaure
+    I-->>F: Event(UNDONE)
+```
+
+## 7. Internationalisation
 
 Komandaro est destiné à servir plusieurs utilisateurs de langues
 différentes depuis un même processus (un serveur web) ; il **ne conserve
@@ -273,10 +420,11 @@ sont versionnés, les `.mo` sont construits (`pybabel compile`) et ignorés
 par git. La CI vérifie que `komandaro.pot` correspond aux sources et que
 chaque catalogue compile.
 
-## 6. Feuille de route
+## 8. Feuille de route
 
-La phase 1 (0.1) livre un cœur sain et testé. Les phases suivantes
-construisent la promesse « une logique, plusieurs interfaces » par-dessus.
+La phase 1 (0.1) a livré un cœur sain et testé ; la phase 2 (0.2) la
+couche de description. Les phases suivantes construisent les frontaux
+par-dessus.
 
 ```mermaid
 gantt
@@ -286,10 +434,10 @@ gantt
     section Phase 1 — cœur
     Machine à états, macros, i18n, tests, CI          :done, p1, 2026-09, 4w
     section Phase 2 — décrire les commandes
-    Schéma de paramètres (zope.schema / dataclass)    :p2a, after p1, 8w
-    Crochet mémento (instantané avant exécution)      :p2b, after p1, 4w
-    Invocateur (historique, piles undo/redo, événements) :p2c, after p2a, 4w
-    Registre de commandes (entry points / groupes)    :p2d, after p2c, 4w
+    Schéma de paramètres (zope.schema)                :done, p2a, after p1, 1w
+    Crochet mémento (instantané avant exécution)      :done, p2b, after p1, 1w
+    Invocateur (historique, piles undo/redo, événements) :done, p2c, after p2a, 1w
+    Registre de commandes (entry points / groupes)    :done, p2d, after p2c, 1w
     section Phase 3 — frontaux
     CLI générée depuis le schéma (argparse/Typer)     :p3a, after p2d, 8w
     Formulaires HTML + vues Pyramid                   :p3b, after p2d, 12w
@@ -299,23 +447,12 @@ gantt
     Commandes async, persistance, journal d'audit     :p4, after p3d, 12w
 ```
 
-### Phase 2 — décrire les commandes
+### Phase 2 — décrire les commandes (livrée en 0.2)
 
-* **Schéma de paramètres.** Chaque classe de commande déclare les
-  paramètres qu'elle lit dans le contexte : type, libellé traduisible,
-  valeur par défaut, contraintes. C'est la clé de voûte de la portabilité :
-  une CLI en dérive ses options et son `--help`, un frontal HTML un
-  formulaire, une API un schéma JSON. `zope.schema` est le choix naturel
-  dans cet écosystème ; une alternative à base de dataclasses sera évaluée.
-* **Mémento.** Un crochet optionnel `snapshot(context)` exécuté avant
-  `_do()`, dont la valeur est transmise à `_undo()`, pour les opérations
-  dont l'inverse ne se déduit pas du seul résultat.
-* **Invocateur.** Possède les piles annuler/rétablir, exécute les
-  commandes, émet des événements (exécutée, annulée, rétablie) auxquels
-  frontaux et journaux d'audit s'abonnent.
-* **Registre.** Découvre les classes de commandes (entry points ou
-  enregistrement explicite), les organise en groupes, leur attache des
-  permissions.
+Schémas de paramètres (§5), crochet mémento (§4), registre et invocateur
+(§6). Reste ouvert du plan initial : les **permissions** attachées aux
+entrées du registre, qui viendront avec le premier frontal qui en a
+besoin (HTML).
 
 ### Phase 3 — frontaux
 
@@ -330,18 +467,21 @@ deviennent des outils pour les agents IA.
 Commandes asynchrones (`async def _do`), persistance de l'historique (ZODB
 ou JSON), journal d'audit et rejeu.
 
-## 7. Décisions de conception
+## 9. Décisions de conception
 
 | Décision | Justification |
 |---|---|
 | Conserver `zope.interface` | Contrats vérifiables (`verifyObject`), adaptateurs gratuits, passerelle naturelle vers `zope.schema` et Pyramid ; l'écosystème de l'auteur. `zope.component` n'est *pas* requis. |
+| `zope.schema` pour les paramètres | Champs typés avec titres i18n, validation et vocabulaires existent déjà et sont ce que consomment les bibliothèques de formulaires Pyramid/Plone ; inutile de réinventer un modèle de formulaire. |
+| Paramètres ≠ contexte | Le contexte est l'état de l'application ; les paramètres sont la saisie d'une exécution. Les séparer est ce qui permet à un frontal de demander à l'utilisateur exactement ce dont la commande a besoin. |
+| L'invocateur émet des événements au lieu d'appeler l'interface | Le cœur ne doit pas connaître ses frontaux ; les observateurs gardent la dépendance orientée vers l'intérieur. |
 | États en interfaces marqueurs, pas en énumération | Les frontaux peuvent interroger `IExecutedCommand.providedBy(cmd)` et enregistrer adaptateurs/vues par état. Un triplet de propriétés `is_*` est fourni par commodité. |
 | Une instance par exécution | Chaque instance est la trace immuable d'une action, ce dont un historique d'annulation a besoin. |
 | Messages paresseux, pas de langue globale | Un processus peut servir plusieurs utilisateurs ; la locale appartient au frontal, pas au cœur. |
 | Python ≥ 3.12, disposition `src/`, hatchling | Empaquetage moderne, pas de namespace package, tests exécutés contre le paquet installé. |
 | AGPL-3.0-or-later | Copyleft couvrant aussi l'usage en réseau, cohérent avec les autres projets de l'auteur. |
 
-## 8. Historique
+## 10. Historique
 
 Komandaro descend de `ecreall.command` (2014), un prototype écrit pour
 l'écosystème Plone/Zope chez Ecréall. Le prototype définissait les

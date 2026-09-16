@@ -12,3 +12,5 @@ coverage.xml
 htmlcov/
 # compiled catalogues are built, not versioned
 *.mo
+*.patch
+*.mbox

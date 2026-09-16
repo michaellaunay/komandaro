@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "komandaro"
-version = "0.1.0"
+version = "0.2.0"
 description = "Undoable Command pattern toolkit: write logic once, expose it as CLI, HTML, TUI or API."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -23,7 +23,7 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Typing :: Typed",
 ]
-dependencies = ["zope.interface>=6.0"]
+dependencies = ["zope.interface>=6.0", "zope.schema>=7.0"]
 
 [project.optional-dependencies]
 dev = [
@@ -73,6 +73,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]  # accented characters in French strings
 
 [tool.ruff.lint.per-file-ignores]
 "src/komandaro/interfaces.py" = ["N805"]  # zope interface methods have no self
+"tests/*" = ["N806"]  # command classes built inside tests keep CamelCase
 
 [tool.mypy]
 python_version = "3.12"

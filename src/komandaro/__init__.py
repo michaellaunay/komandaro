@@ -21,12 +21,19 @@ from komandaro.interfaces import (
     ISimpleCommand,
     IUndoneCommand,
 )
+from komandaro.invoker import Event, EventKind, HistoryError, Invoker
+from komandaro.registry import Entry, Registry, RegistryError
+from komandaro.schema import ParameterError, ParameterInfo, ParameterIssue, describe, validate
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "BaseCommand",
     "CommandStateError",
+    "Entry",
+    "Event",
+    "EventKind",
+    "HistoryError",
     "IBaseCommand",
     "ICommand",
     "IContext",
@@ -34,11 +41,19 @@ __all__ = [
     "IMacro",
     "ISimpleCommand",
     "IUndoneCommand",
+    "Invoker",
     "Macro",
     "Message",
+    "ParameterError",
+    "ParameterInfo",
+    "ParameterIssue",
+    "Registry",
+    "RegistryError",
     "SimpleCommand",
     "SimpleCommandFactory",
     "__version__",
+    "describe",
     "make_gettext",
     "translate",
+    "validate",
 ]

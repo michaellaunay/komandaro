@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: komandaro 0.1.0\n"
+"Project-Id-Version: komandaro 0.2.0\n"
 "Report-Msgid-Bugs-To: https://github.com/michaellaunay/komandaro/issues\n"
-"POT-Creation-Date: 2026-09-16 11:47+0000\n"
+"POT-Creation-Date: 2026-09-16 12:26+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,35 +17,72 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: src/komandaro/command.py:51
+#: src/komandaro/command.py:71
 msgid "Unnamed command"
 msgstr ""
 
-#: src/komandaro/command.py:62
+#: src/komandaro/command.py:91
 #, python-format
 msgid "Command %(name)s has already been executed"
 msgstr ""
 
-#: src/komandaro/command.py:68
+#: src/komandaro/command.py:98
 #, python-format
 msgid "Command %(name)s cannot be undone in its current state"
 msgstr ""
 
-#: src/komandaro/command.py:74
+#: src/komandaro/command.py:104
 #, python-format
 msgid "Command %(name)s cannot be redone in its current state"
 msgstr ""
 
-#: src/komandaro/command.py:192
+#: src/komandaro/command.py:251
 msgid "Macro"
 msgstr ""
 
-#: src/komandaro/command.py:193
+#: src/komandaro/command.py:252
 msgid "A sequence of commands executed as one"
 msgstr ""
 
-#: src/komandaro/command.py:200 src/komandaro/command.py:204
+#: src/komandaro/command.py:259 src/komandaro/command.py:263
 #, python-format
 msgid "Macro %(name)s cannot be modified once executed"
+msgstr ""
+
+#: src/komandaro/invoker.py:101
+msgid "This invoker has no registry"
+msgstr ""
+
+#: src/komandaro/invoker.py:124
+msgid "Nothing to undo"
+msgstr ""
+
+#: src/komandaro/invoker.py:138
+msgid "Nothing to redo"
+msgstr ""
+
+#: src/komandaro/registry.py:91
+#, python-format
+msgid "Command %(id)s is already registered"
+msgstr ""
+
+#: src/komandaro/registry.py:131
+#, python-format
+msgid "Unknown command %(id)s"
+msgstr ""
+
+#: src/komandaro/schema.py:135
+#, python-format
+msgid "Unknown parameter %(name)s"
+msgstr ""
+
+#: src/komandaro/schema.py:142
+#, python-format
+msgid "Missing required parameter %(name)s"
+msgstr ""
+
+#: src/komandaro/schema.py:156
+#, python-format
+msgid "Invalid value for parameter %(name)s: %(error)s"
 msgstr ""
 
