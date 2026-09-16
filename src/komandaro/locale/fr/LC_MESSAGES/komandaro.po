@@ -1,0 +1,52 @@
+# French translations for komandaro.
+# Copyright (C) 2026 Michaël Launay
+# This file is distributed under the same license as the komandaro project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: komandaro 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/michaellaunay/komandaro/issues\n"
+"POT-Creation-Date: 2026-09-16 11:47+0000\n"
+"PO-Revision-Date: 2026-09-16 11:48+0000\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: fr\n"
+"Language-Team: fr <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: src/komandaro/command.py:51
+msgid "Unnamed command"
+msgstr "Commande sans nom"
+
+#: src/komandaro/command.py:62
+#, python-format
+msgid "Command %(name)s has already been executed"
+msgstr "La commande %(name)s a déjà été exécutée"
+
+#: src/komandaro/command.py:68
+#, python-format
+msgid "Command %(name)s cannot be undone in its current state"
+msgstr "La commande %(name)s ne peut pas être annulée dans son état actuel"
+
+#: src/komandaro/command.py:74
+#, python-format
+msgid "Command %(name)s cannot be redone in its current state"
+msgstr "La commande %(name)s ne peut pas être rétablie dans son état actuel"
+
+#: src/komandaro/command.py:192
+msgid "Macro"
+msgstr "Macro"
+
+#: src/komandaro/command.py:193
+msgid "A sequence of commands executed as one"
+msgstr "Une séquence de commandes exécutée comme une seule"
+
+#: src/komandaro/command.py:200 src/komandaro/command.py:204
+#, python-format
+msgid "Macro %(name)s cannot be modified once executed"
+msgstr "La macro %(name)s ne peut plus être modifiée une fois exécutée"
+
