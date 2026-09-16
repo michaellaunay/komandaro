@@ -19,7 +19,7 @@ Chaque action de l'utilisateur est un objet qui :
 * connaît son **nom** et sa **description** (traduisibles),
 * est lié à un **contexte d'exécution** (l'état de l'application),
 * peut être **exécuté une fois**, **annulé** et **rétabli**,
-* peut être **composé** en macros atomiques.
+* peut être **composé** en macros dont la compensation est explicitement définie.
 
 Un frontal — CLI, HTML, TUI, JSON, agent IA — n'est alors rien de plus
 qu'une façon de *choisir* une commande, de la *lier* à un contexte, de
@@ -66,7 +66,7 @@ src/komandaro/
 tests/               `python -m pytest` ; chaque bloc ```pycon de README.md et docs/ s'exécute aussi
 examples/notebook/   l'application du tutoriel : logique (notebook.py), CLI générée (cli.py), catalogue fr
 docs/en, docs/fr     tutoriel, comment ça marche, exemples, api, architecture (ce document)
-.github/workflows/   CI : ruff, mypy, vérification i18n, pytest 3.12/3.13, build
+.github/workflows/   CI : ruff, mypy, vérification i18n, pytest 3.12/3.13/3.14, build
 ```
 
 ## 3. Interfaces : genres et états
@@ -91,6 +91,7 @@ par `directlyProvides` :
 | `ICommand` | prête | `execute()` |
 | `IExecutedCommand` | exécutée, réversible | `undo()` |
 | `IUndoneCommand` | annulée, rejouable | `redo()` |
+| `IBrokenCommand` | compensation impossible, réparation applicative requise | aucune |
 
 ```mermaid
 classDiagram
@@ -136,6 +137,10 @@ classDiagram
     IBaseCommand <|-- ICommand
     IBaseCommand <|-- IExecutedCommand
     IBaseCommand <|-- IUndoneCommand
+    class IBrokenCommand {
+        <<interface>>
+    }
+    IBaseCommand <|-- IBrokenCommand
     IBaseCommand <|-- ISimpleCommand
     IBaseCommand <|-- IMacro
 
@@ -150,6 +155,7 @@ classDiagram
         +is_ready
         +is_executed
         +is_undone
+        +is_broken
         #_snapshot()
         #_do()
         #_undo()
@@ -176,9 +182,9 @@ classDiagram
 Pourquoi séparer genres et états ? `zope.interface` refuse de retirer une
 interface déclarée par la classe (`noLongerProvides` lève `ValueError`).
 Le prototype de 2014 tentait exactement cela. En gardant les genres sur la
-classe et les états sur l'instance, `directlyProvides(self, <état>)`
-remplace l'ensemble des interfaces *directement fournies* sans toucher au
-genre : `ISimpleCommand.providedBy(cmd)` reste vrai toute la vie de
+classe et les états sur l'instance, `_set_state()` remplace les marqueurs
+d'état et leurs sous-interfaces, préserve les autres interfaces directement
+fournies et ne touche pas au genre : `ISimpleCommand.providedBy(cmd)` reste vrai toute la vie de
 l'objet, tandis que `ICommand.providedBy(cmd)` reflète son état courant.
 
 ## 4. Cycle de vie
@@ -195,6 +201,10 @@ stateDiagram-v2
     Ready : fournit ICommand
     Executed : fournit IExecutedCommand
     Undone : fournit IUndoneCommand
+    Ready --> Broken : échec de compensation
+    Executed --> Broken : échec de compensation
+    Undone --> Broken : échec de compensation
+    Broken : IBrokenCommand
     note right of Ready
         Tout autre appel lève
         CommandStateError
@@ -233,12 +243,14 @@ départ.
 
 ### Macro
 
-Une `Macro` contient des *instances* de commandes (généralement liées au
-même contexte). Elle les exécute dans l'ordre et les annule dans l'ordre
-inverse. Elle est **atomique** : si une commande enfant lève une exception
-pendant `execute()` ou `redo()`, les enfants déjà exécutés sont annulés
-dans l'ordre inverse et l'exception se propage ; la macro reste dans son
-état précédent.
+Une `Macro` contient des instances dans un arbre sans cycle, liées au contexte
+de l'invocateur lorsqu'il est utilisé. Execute/redo suivent l'ordre des enfants,
+undo l'ordre inverse. Un échec compense toutes les étapes terminées. Si la
+compensation réussit, les états précédents sont restaurés, y compris l'état
+prêt des enfants après un execute échoué. Sinon, `IBrokenCommand` bloque les
+transitions et toutes les erreurs sont conservées. Ce n'est pas l'atomicité
+d'une base de données. Le diagramme suivant illustre uniquement une
+**compensation réussie**. Voir le [contrat de fiabilité](reliability.md).
 
 ```mermaid
 sequenceDiagram
@@ -377,8 +389,10 @@ reçoit une **politique** et un **sujet**, demande
 `policy.permits(subject, required, command)` avant d'exécuter et lève
 `PermissionDeniedError` (événement `denied`) en cas de refus ;
 `registry.allowed(policy, subject)` donne au frontal les entrées qu'il peut
-afficher. Annuler et rétablir ne sont pas revérifiés : on peut toujours
-revenir sur ses propres actions.
+afficher. Run, undo et redo revérifient le sujet courant pour tout l'arbre
+des macros intégrées. Une révocation bloque aussi l'historique : c'est un
+durcissement volontaire du contrat 0.3.0. Le filtrage des menus ne remplace
+pas l'autorisation ; voir le [contrat de fiabilité](reliability.md).
 
 ```mermaid
 classDiagram
@@ -489,9 +503,11 @@ Les erreurs de validation des champs `zope.schema` sont associées à des
 identifiants (`field_too_short`…) et traduites comme le reste.
 
 **Flux de travail.** `babel.cfg` configure l'extraction. Les fichiers `.po`
-sont versionnés, les `.mo` sont construits (`pybabel compile`) et ignorés
-par git. La CI vérifie que `komandaro.pot` correspond aux sources et que
-chaque catalogue compile.
+sont versionnés ; `hatch_build.py` compile automatiquement les `.mo`, qui
+restent ignorés par git. `python tools/check_catalogues.py` contrôle les
+identifiants complets, contextes, pluriels et substitutions des deux domaines.
+La CI vérifie les distributions puis installe la roue hors du dépôt, sans
+importer les sources de travail.
 
 ## 8. Feuille de route
 
@@ -558,10 +574,10 @@ ou JSON), journal d'audit et rejeu.
 | Identifiants de message, anglais dans le catalogue `en` | Même convention qu'AlirPunkto : la formulation vit dans les catalogues, le code porte des identifiants stables ; les espaces réservés `${name}` sont ceux des `TranslationString` de Pyramid. |
 | Permissions opaques pour le cœur, politique remplaçable | Le modèle `IntFlag` d'aujourd'hui et le graphe de classes de permission de demain doivent tenir tous deux sans toucher aux commandes ni aux frontaux ; la politique est le seul endroit qui interprète une permission. |
 | `IContext` conservée comme marqueur optionnel | Ne coûte rien, et garde disponible l'idée de 2014 — les commandes comme adaptateurs du contexte — pour une intégration `zope.component` optionnelle. |
-| États en interfaces marqueurs, pas en énumération | Les frontaux peuvent interroger `IExecutedCommand.providedBy(cmd)` et enregistrer adaptateurs/vues par état. Un triplet de propriétés `is_*` est fourni par commodité. |
+| États en interfaces marqueurs, pas en énumération | Les frontaux peuvent interroger `IExecutedCommand.providedBy(cmd)` et enregistrer adaptateurs/vues par état. Quatre propriétés de commodité exposent ces états, dont `is_broken`. |
 | Une instance par exécution | Chaque instance est la trace immuable d'une action, ce dont un historique d'annulation a besoin. |
 | Messages paresseux, pas de langue globale | Un processus peut servir plusieurs utilisateurs ; la locale appartient au frontal, pas au cœur. |
-| Python ≥ 3.12, disposition `src/`, hatchling | Empaquetage moderne, pas de namespace package, tests exécutés contre le paquet installé. |
+| Python ≥ 3.12, disposition `src/`, hatchling | Empaquetage moderne, pas de namespace package, tests des sources et contrôle séparé de la roue installée. |
 | AGPL-3.0-or-later | Copyleft couvrant aussi l'usage en réseau, cohérent avec les autres projets de l'auteur. |
 
 ## 10. Historique

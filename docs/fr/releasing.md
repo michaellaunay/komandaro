@@ -1,106 +1,95 @@
 # Publier sur PyPI
 
-*English version: [`docs/en/releasing.md`](../en/releasing.md)*
+[English version](../en/releasing.md).
 
-Komandaro est publié par le workflow GitHub Actions `Release`
-(`.github/workflows/release.yml`) grâce à la **publication de confiance**
-(*trusted publishing*) de PyPI : PyPI fait confiance à un jeton OpenID
-Connect de courte durée émis par GitHub pour ce dépôt, ce workflow et cet
-environnement précis. Aucun jeton d'API n'est créé, stocké ni renouvelé.
+Le workflow `Release` utilise la publication de confiance PyPI (OIDC). Les jobs
+de construction n'ont qu'un accès en lecture au dépôt. Seuls les jobs séparés
+de publication reçoivent `id-token: write` ; ils téléchargent les distributions
+sans extraire le dépôt. La publication attend les contrôles de qualité et
+d'installation des roues sur la matrice configurée Python 3.12, 3.13 et 3.14.
 
-## Mise en place, une seule fois
+## Éditeur et environnements
 
-### 1. Déclarer l'éditeur sur PyPI (avant le premier envoi)
+Pour un projet PyPI existant, configurez son éditeur de confiance dans les
+paramètres de publication du projet. Un éditeur « en attente » ne sert qu'avant
+le premier envoi ; ne présumez pas que le projet n'existe pas.
 
-Le projet n'existe pas encore sur PyPI : on déclare donc un éditeur « en
-attente » (*pending publisher*), qui créera le projet au premier envoi
-réussi.
+| Champ | Production | Test |
+|---|---|---|
+| Propriétaire / dépôt | `michaellaunay` / `komandaro` | identiques |
+| Workflow | `release.yml` | identique |
+| Environnement | `pypi` | `testpypi` |
+| Projet | `komandaro` | `komandaro` |
 
-1. Connectez-vous sur <https://pypi.org>, ouvrez *Your account →
-   Publishing*.
-2. Sous *Add a new pending publisher → GitHub*, renseignez :
+Créez les environnements GitHub correspondants. Restreignez la production aux
+étiquettes de version, exigez une validation indépendante quand elle est
+disponible, et protégez la branche principale ainsi que les étiquettes de
+publication. Ces réglages sont administratifs : le commit du workflow ne les
+configure pas et ne prouve pas leur présence.
 
-   | champ | valeur |
-   |---|---|
-   | PyPI project name | `komandaro` |
-   | Owner | `michaellaunay` |
-   | Repository name | `komandaro` |
-   | Workflow name | `release.yml` |
-   | Environment name | `pypi` |
+Les actions sont épinglées sur des SHA complets ; Dependabot propose leurs mises
+à jour. Relisez ces propositions au lieu de remettre des références majeures
+mobiles. Les dépendances Python de construction et de développement ne sont pas
+pour autant totalement verrouillées.
 
-3. Cliquez sur *Add*. L'éditeur est lié au compte qui le déclare : ce
-   compte devient propriétaire du projet.
+## Préparer la version
 
-Répétez sur <https://test.pypi.org> avec l'environnement `testpypi` pour
-disposer d'un envoi à blanc (recommandé pour la première publication).
+Ne republiez pas 0.3.0. Choisissez une nouvelle version, modifiez `pyproject.toml`
+et `src/komandaro/__init__.py`, puis déplacez les entrées Unreleased du changelog.
+Relisez les [changements de contrat](reliability.md) : contrôle d'undo/redo,
+identité des contextes, macros inutilisables et isolation des observateurs.
 
-### 2. Créer les environnements GitHub
-
-Dans le dépôt, *Settings → Environments → New environment* : créez `pypi`
-et, optionnellement, `testpypi`. Pour `pypi`, envisagez *Required
-reviewers* (vous-même) : le job de publication attend alors un clic, ce
-qui protège à peu de frais d'une étiquette poussée par erreur.
-
-### 3. S'assurer que le workflow est dans le commit étiqueté
-
-Une étiquette déclenche le workflow *du commit qu'elle désigne*. Le fichier
-`release.yml` doit donc être commité avant de créer l'étiquette.
-
-## À chaque version
-
-1. Incrémentez la version dans **les deux** fichiers `pyproject.toml` et
-   `src/komandaro/__init__.py` (`tests/test_version.py` garantit leur
-   cohérence) et ajoutez l'entrée de `CHANGELOG.md`.
-2. Commitez, puis lancez les vérifications localement :
-
-   ```bash
-   python -m pytest
-   ruff check . && ruff format --check . && mypy
-   ```
-
-3. Envoi à blanc optionnel : *Actions → Release → Run workflow → target:
-   testpypi*, puis `pip install -i https://test.pypi.org/simple/ komandaro`
-   dans un virtualenv jetable.
-4. Étiquetez et poussez :
-
-   ```bash
-   git tag v0.2.1
-   git push && git push --tags
-   ```
-
-Le workflow vérifie alors que l'étiquette correspond à `pyproject.toml`,
-exécute la suite de tests, compile les catalogues gettext, construit la
-sdist et la roue, contrôle les métadonnées (`twine check --strict`) ainsi
-que la présence des `.mo` et de `py.typed` dans la roue, puis publie.
-
-Une étiquette créée avant l'existence de `release.yml` ne déclenche jamais
-le workflow et ne demande aucune action : `v0.2.0` est une étiquette git
-de ce type, jamais publiée, et la première version sur PyPI est `0.2.1`.
-Ce n'est que si une *future* étiquette est poussée par erreur avant que son
-commit ne soit prêt qu'il faut la déplacer (`git tag -d vX.Y.Z`,
-`git push --delete origin vX.Y.Z`, ré-étiqueter) — et seulement tant que
-rien n'a été publié sous cette version : une fois sur PyPI, une version ne
-peut jamais être renvoyée, seulement remplacée par une version supérieure.
-
-## Publication à la main (secours)
-
-Seulement si le workflow ne peut pas s'exécuter. Utilisez un jeton d'API
-limité au projet, jamais votre mot de passe :
+Depuis une copie propre et un environnement virtuel :
 
 ```bash
-pip install build twine
-pybabel compile -d src/komandaro/locale -D komandaro
-rm -rf dist && python -m build && twine check --strict dist/*
-TWINE_USERNAME=__token__ TWINE_PASSWORD=pypi-... twine upload dist/*
+python -m pip install -e ".[dev]" build twine
+python tools/check_catalogues.py
+ruff check .
+ruff format --check .
+mypy
+python -m pytest --cov
+python -m build
+python -m twine check --strict dist/*
+python tools/check_dist.py
+python tools/smoke_wheel.py
 ```
 
-(`--repository testpypi` pour un envoi à blanc, avec un jeton TestPyPI.)
+Utilisez un répertoire `dist/` vide ; archivez ou supprimez uniquement les anciennes
+sorties de construction selon votre besoin. `pybabel compile` n'est plus un
+prérequis manuel. Le hook isolé régénère les MO, y compris pour une roue reconstruite
+depuis le sdist. Le contrôle d'installation crée un environnement temporaire,
+installe la roue et ses dépendances, puis l'importe hors dépôt avec `python -I`.
 
-## Après la première publication
+## TestPyPI et production
 
-* Le badge et le lien *Homepage* sur PyPI viennent de `pyproject.toml`
-  (`[project.urls]`) ; la description longue est `README.md`, dont les
-  liens sont absolus pour fonctionner sur PyPI.
-* Ajoutez `python -m pip install komandaro` à votre liste de contrôle :
-  installez la roue publiée dans un virtualenv neuf et exécutez le premier
-  bloc du tutoriel.
+Un lancement manuel `target=testpypi` accepte une branche ou une étiquette de
+version concordante. TestPyPI est indépendant de PyPI et peut ne pas contenir
+toutes les dépendances. Pour examiner la roue de test publiée, téléchargez cette
+version exacte sans dépendances depuis TestPyPI, puis installez le fichier local
+dans un environnement neuf en résolvant ses dépendances sur l'index habituel.
+Ne mélangez pas sans discernement les deux index.
+
+La production exige une étiquette exacte `v<project.version>`, y compris lors
+d'un lancement manuel. `target=pypi` depuis une branche est refusé avant la
+construction. Une étiquette ne correspondant pas à la version est refusée pour
+les deux index. Après les vérifications, créez et poussez seulement l'étiquette
+prévue, par exemple depuis les métadonnées déjà mises à jour :
+
+```bash
+version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+git tag -a "v$version" -m "Release $version"
+git push origin "v$version"
+```
+
+Vérifiez que l'étiquette pointe vers le commit relu contenant le workflow durci.
+Ne déplacez pas une étiquette déjà publiée. Une version publiée ne se réutilise
+pas pour renvoyer des fichiers corrigés : créez une nouvelle version. Les patchs
+ne créent aucune étiquette, ne poussent aucun commit, ne changent aucune protection
+administrative et ne publient rien par eux-mêmes.
+
+Après publication, installez la version exacte dans un nouvel environnement et
+vérifiez imports, traductions et cycle commande/annulation/rétablissement. La roue
+construite sous Python 3.12 est publiée après réussite de toute la matrice.
+
+Références officielles : [éditeurs de confiance PyPI](https://docs.pypi.org/trusted-publishers/)
+et [environnements GitHub](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment).

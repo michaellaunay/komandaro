@@ -3,6 +3,42 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [Unreleased]
+
+### Security and compatibility
+- Reauthorize the current subject on run, undo and redo, including all built-in
+  macro descendants; reject foreign contexts, repeated instances and cycles.
+  This intentionally tightens 0.3.0's undo/redo authorization policy.
+- Separate Flag/IntFlag permission domains before equality comparisons.
+- Preserve all compensation failures and expose `IBrokenCommand` / `is_broken`
+  when application recovery is required. Reject reentrant transitions.
+- Isolate ordinary observer exceptions from business outcomes; process-control
+  exceptions remain visible. Observer notifications are not transaction hooks.
+
+### Fixed
+- Restore retryable macro states after compensated execute, undo and redo failures;
+  preserve unrelated direct Zope markers while replacing state subinterfaces.
+- Validate history limits before side effects and make unsubscribe idempotent.
+- Isolate static container defaults while preserving Choice/factory/object identity;
+  keep selected registry aliases on instances without mutating their classes.
+- Stabilize language generators across nested messages, retain English fallback
+  for C/POSIX variants, and handle duplicate error-formatting arguments.
+- Compile catalogues automatically in clean wheel, sdist and editable builds;
+  check complete gettext ids, contexts, plurals and placeholders.
+
+- Reject malformed CLI quoting and boolean values; preserve non-zero exit
+  status for invalid arguments and failed one-shot commands. Validate `--lang`.
+
+### Changed
+- Pin GitHub Actions to verified SHAs, disable persisted checkout credentials,
+  and add Dependabot action updates and bounded job durations.
+- Require matching version tags for every production publication. Run quality
+  gates and installed-wheel smoke checks on Python 3.12, 3.13 and 3.14 before
+  publishing; configuration alone is not a claim that these new jobs passed.
+- Align Ruff and pre-commit on 0.16.8; update French and English API, architecture,
+  tutorials, reliability and release documentation. Keep version 0.3.0 until
+  the maintainer selects the next release; do not republish the existing version.
+
 ## [0.3.0] — 2026-09-16
 
 Consolidation: closes what the initial audit left open before any front

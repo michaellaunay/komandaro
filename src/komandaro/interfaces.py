@@ -226,13 +226,17 @@ class IInvoker(Interface):
 
     context = Attribute("The context commands are bound to.")
     registry = Attribute("Optional IRegistry used to create commands by id.")
-    policy = Attribute("Optional IPermissionPolicy consulted before running.")
+    policy = Attribute("Optional policy consulted before run, undo and redo.")
     subject = Attribute("Who is running the commands (opaque, for the policy).")
     limit = Attribute("Maximum size of the undo stack, or None.")
     history = Attribute("Executed commands, oldest first.")
     undone = Attribute("Undone commands awaiting redo, oldest first.")
-    can_undo = Attribute("Whether undo() would succeed.")
-    can_redo = Attribute("Whether redo() would succeed.")
+    can_undo = Attribute(
+        "Whether the undo stack is nonempty; not a permission or success guarantee."
+    )
+    can_redo = Attribute(
+        "Whether the redo stack is nonempty; not a permission or success guarantee."
+    )
 
     def create(id, **params):
         """Instantiate command *id* via the registry, bound to this context."""

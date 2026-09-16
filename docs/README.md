@@ -7,11 +7,18 @@
 | Patterns and snippets | [Examples](en/examples.md) | [Exemples](fr/examples.md) |
 | Every public name | [API reference](en/api.md) | [Référence de l'API](fr/api.md) |
 | Design, diagrams, roadmap | [Architecture](en/architecture.md) | [Architecture](fr/architecture.md) |
+| Reliability, security boundaries and migration | [Contracts](en/reliability.md) | [Contrats](fr/reliability.md) |
 | Publishing a version to PyPI | [Releasing](en/releasing.md) | [Publier sur PyPI](fr/releasing.md) |
 
 The complete example application is in [`../examples/notebook/`](../examples/notebook/).
 
 Every `pycon` block in these pages is executed by the test suite
 (`python -m pytest` runs `--doctest-glob=*.md` over `docs/`), so the
-documentation cannot silently drift from the code. Use the `python -m`
+executable examples are checked. Narrative text and diagrams still require
+review. Use the `python -m`
 form: a bare `pytest` may be the system's, outside your virtual environment.
+
+## Technical audit / Audit technique
+
+[Audit du 16 septembre 2026 (français)](fr/audit-2026-09-16.md) — findings, patch
+sequence, validation evidence and explicit integration limits.

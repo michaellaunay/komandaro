@@ -84,7 +84,7 @@ dernière exécution dans `cmd.result`.
 
 ### Une instance, une exécution
 
-Une instance de commande ne s'exécute qu'une fois. Elle passe par trois
+Dans le cycle normal, execute réussit une fois. Une commande passe par trois
 états — *prête*, *exécutée*, *annulée* — et refuse les appels qui ne
 correspondent pas à son état :
 
@@ -231,10 +231,12 @@ La fabrique couvre la plupart des cas. Quand il vous faut davantage
 
 ## 6. Plusieurs commandes en une : la macro
 
-Une `Macro` exécute des commandes enfants dans l'ordre et les annule dans
-l'ordre inverse. Elle est **atomique** : si un enfant échoue, les enfants
-déjà exécutés sont annulés avant que l'erreur ne se propage. Ici,
-importer plusieurs notes constitue une seule action dans l'historique :
+Une `Macro` exécute les enfants dans l'ordre et les annule dans l'ordre
+inverse. Un échec compense les étapes terminées avant propagation. Chaque
+callback doit laisser le contexte intact lorsqu'il échoue ; une macro n'est
+pas une transaction. Une compensation impossible bloque sa réutilisation
+(`is_broken`) ; voir le [contrat de fiabilité](reliability.md). Ici,
+l'importation constitue une seule entrée d'historique :
 
 ```pycon
 >>> from komandaro import Macro

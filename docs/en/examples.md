@@ -107,9 +107,12 @@ Deleting a slice destroys information; capture it first.
 
 ```
 
-## A bank transfer: two commands, one atomic action
+## A bank transfer: two compensated commands
 
-If the deposit fails, the withdrawal is undone automatically.
+In this in-memory teaching example, a failed deposit triggers compensation
+of the withdrawal. A production transfer needs an actual database transaction
+and concurrency controls; a macro alone cannot provide those guarantees.
+See [reliability](reliability.md) for failed compensation and recovery.
 
 ```pycon
 >>> from komandaro import Macro

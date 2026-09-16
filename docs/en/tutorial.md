@@ -82,7 +82,7 @@ execution as `cmd.result`.
 
 ### One instance, one execution
 
-A command instance runs exactly once. It moves through three states —
+In the normal lifecycle, execute succeeds once. It moves through three states —
 *ready*, *executed*, *undone* — and refuses calls that do not fit its
 state:
 
@@ -225,10 +225,11 @@ custom `redo`, inheritance), subclass `BaseCommand` and implement `_do`,
 
 ## 6. Several commands as one: the macro
 
-A `Macro` runs child commands in order and undoes them in reverse. It is
-**atomic**: if a child fails, the children already run are undone before
-the error propagates. Here, importing several notes is one action in the
-history:
+A `Macro` runs child commands in order and undoes them in reverse. If a
+child fails, completed children are compensated before the error propagates.
+Callbacks must leave the context unchanged when they fail; a macro is not a
+database transaction. Failed compensation blocks reuse (`is_broken`); see
+[reliability](reliability.md). Here, importing notes is one history entry:
 
 ```pycon
 >>> from komandaro import Macro

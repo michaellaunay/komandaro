@@ -50,16 +50,18 @@ are static methods.
 
 ### `Macro(context, commands=(), name=None, description=None, **params)`
 
-Composite command. `commands` are child *instances*. `add(cmd)` /
-`remove(cmd)` while ready; `commands` property (tuple). Execution and redo
-are atomic (children already run are undone on failure); undo runs in
-reverse order. Subclasses may declare a `schema` and build children from
-`self.params`.
+Composite command. Children must be distinct instances in an acyclic tree.
+`add(cmd)` / `remove(cmd)` are allowed while ready and idle; `commands` is a
+tuple. Execute/redo run in order; undo runs in reverse. On failure, completed
+steps are compensated and all compensation errors are retained. Successful
+compensation restores a retryable state; otherwise the macro is broken
+(`is_broken`, `IBrokenCommand`). This is not a transaction. Subclasses may
+build children from validated `self.params`. See [reliability](reliability.md).
 
 ### `CommandStateError(message, **params)`
 
-`RuntimeError`; `str()` gives the message id, `translate(language,
-localedir=None)` the localised text.
+`RuntimeError`; `str()` renders in the process language;
+`translate(language, localedir=None)` selects an explicit language.
 
 ## Interfaces — `komandaro.interfaces`
 
@@ -67,7 +69,8 @@ localedir=None)` the localised text.
 `description`, `schema`, `permission`, `context`, `params`, `result`,
 `memento`).
 States, provided directly on instances: `ICommand` (`execute`),
-`IExecutedCommand` (`undo`), `IUndoneCommand` (`redo`).
+`IExecutedCommand` (`undo`), `IUndoneCommand` (`redo`),
+`IBrokenCommand` (no permitted transition; application recovery required).
 Kinds, declared on classes: `ISimpleCommand` (`do_it`, `undo_it`,
 `snapshot_it`), `IMacro` (`commands`, `add`, `remove`).
 Collaborators: `IEntry`, `IRegistry`, `IInvoker`, `IEvent`,
@@ -131,11 +134,17 @@ id; `translate(language)`.
 | `subscribe(handler) → unsubscribe` | observe `Event`s |
 | `history`, `undone` (tuples, oldest first), `can_undo`, `can_redo`, `len`, iteration | introspection |
 
-`limit` caps the undo stack (oldest entries are dropped). With a `policy`,
-`run` first checks `policy.permits(subject, command.permission, command)`
-and raises `PermissionDeniedError` (event `denied`) when refused; `subject`
-is a plain attribute you may reassign per request or session. Undo and
-redo are never re-checked.
+`limit` accepts `None` (unbounded), zero, or a positive integer; booleans and
+invalid values are rejected before execution. Trimming occurs after successful
+run/redo; changing the limit does not immediately trim existing stacks.
+With a policy, **run, undo and redo** authorize the current subject and every
+macro descendant before any business callback. Refusal raises
+`PermissionDeniedError` and emits `denied` for the refused child. All contexts
+must be the identical object owned by the invoker. Isolate histories per
+context and principal; `can_undo`/`can_redo` only indicate nonempty stacks.
+Ordinary observer exceptions are logged, not propagated; process-control
+exceptions still propagate after successful transitions have been recorded.
+Reentrant run/undo/redo/clear raises `HistoryError`. See [reliability](reliability.md).
 
 `Event` (frozen dataclass): `kind: EventKind`, `command`, `error`, `at`
 (UTC). `EventKind`: `EXECUTED`, `UNDONE`, `REDONE`, `FAILED`, `DENIED`,
@@ -190,3 +199,7 @@ compiled from `.po` files with `pybabel compile`.
 
 All five have `translate(language)`; `str()` gives the message in the
 language of the process (English when it has none).
+
+## Reliability and migration
+
+See [failure, permission, defaults and observer contracts](reliability.md).

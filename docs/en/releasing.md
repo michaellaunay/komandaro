@@ -1,102 +1,91 @@
 # Releasing to PyPI
 
-*Version française : [`docs/fr/releasing.md`](../fr/releasing.md)*
+[Version française](../fr/releasing.md).
 
-Komandaro is published by the `Release` GitHub Actions workflow
-(`.github/workflows/release.yml`) using PyPI **trusted publishing**: PyPI
-trusts a short-lived OpenID Connect token issued by GitHub for that exact
-repository, workflow and environment. No API token is created, stored or
-rotated.
+The `Release` workflow publishes through PyPI trusted publishing (OIDC). Build
+jobs have read-only repository access; only the separate publish jobs receive
+`id-token: write`. They download distributions and do not check out the repository.
+A release is published only after quality gates and wheel-install checks pass
+on the configured Python 3.12, 3.13 and 3.14 matrix.
 
-## One-time setup
+## Publisher and environment setup
 
-### 1. Register the publisher on PyPI (before the first upload)
+For an existing PyPI project, configure its trusted publisher in the project's
+publishing settings. A pending publisher is only needed before a project's first
+upload; do not assume that the project is absent. Configure:
 
-The project does not exist on PyPI yet, so register a *pending* publisher —
-it creates the project on the first successful upload.
+| Field | Production | Test |
+|---|---|---|
+| Owner / repository | `michaellaunay` / `komandaro` | same |
+| Workflow | `release.yml` | same |
+| Environment | `pypi` | `testpypi` |
+| Project | `komandaro` | `komandaro` |
 
-1. Log in to <https://pypi.org>, open *Your account → Publishing*.
-2. Under *Add a new pending publisher → GitHub*, fill in:
+Create the matching GitHub environments. Restrict production deployment refs to
+version tags, require an independent reviewer where available, and protect the
+main branch and release tags with repository rules. These are administrator
+settings: committing the workflow does not configure or prove them.
 
-   | field | value |
-   |---|---|
-   | PyPI project name | `komandaro` |
-   | Owner | `michaellaunay` |
-   | Repository name | `komandaro` |
-   | Workflow name | `release.yml` |
-   | Environment name | `pypi` |
+Actions are pinned by full commit SHA. Dependabot proposes action updates; review
+those changes instead of replacing the pins with moving major tags. Python build
+and development dependencies are not a fully locked supply chain.
 
-3. Click *Add*. The publisher is bound to the account that registers it:
-   that account becomes the project owner.
+## Prepare a version
 
-Repeat on <https://test.pypi.org> with environment name `testpypi` if you
-want dry runs (recommended for the first release).
+Do not republish 0.3.0. Select a new version, update both `pyproject.toml` and
+`src/komandaro/__init__.py`, and move the relevant Unreleased changelog entries.
+Review [migration and security changes](reliability.md), particularly authorization
+on undo/redo, context identity, broken macros and observer exception isolation.
 
-### 2. Create the GitHub environments
-
-In the repository, *Settings → Environments → New environment*: create
-`pypi` and, optionally, `testpypi`. For `pypi`, consider *Required
-reviewers* (yourself): the publish job then waits for a click, which is a
-cheap safeguard against an accidental tag push.
-
-### 3. Make sure the workflow is on the tagged commit
-
-A tag triggers the workflow *of the commit it points to*. The
-`release.yml` file must therefore be committed before the tag is created.
-
-## Every release
-
-1. Bump the version in **both** `pyproject.toml` and
-   `src/komandaro/__init__.py` (`tests/test_version.py` keeps them
-   consistent) and add the `CHANGELOG.md` entry.
-2. Commit, then run the checks locally:
-
-   ```bash
-   python -m pytest
-   ruff check . && ruff format --check . && mypy
-   ```
-
-3. Optional dry run: *Actions → Release → Run workflow → target: testpypi*,
-   then `pip install -i https://test.pypi.org/simple/ komandaro` in a
-   scratch virtualenv.
-4. Tag and push:
-
-   ```bash
-   git tag v0.2.1
-   git push && git push --tags
-   ```
-
-The workflow then: checks that the tag matches `pyproject.toml`, runs the
-test suite, compiles the gettext catalogues, builds the sdist and the
-wheel, verifies the metadata (`twine check --strict`) and that the wheel
-ships the `.mo` files and `py.typed`, and publishes.
-
-A tag created before `release.yml` existed never triggers the workflow
-and needs no action: `v0.2.0` is such a git-only tag, it was never
-published, and the first version on PyPI is `0.2.1`. Only if a *future*
-tag is pushed by mistake before its commit is right should it be moved
-(`git tag -d vX.Y.Z`, `git push --delete origin vX.Y.Z`, re-tag) — and
-only while nothing was published under that version: once a version is on
-PyPI it can never be re-uploaded, only superseded by a higher one.
-
-## Publishing by hand (fallback)
-
-Only if the workflow cannot run. Use an API token scoped to the project,
-never your password:
+In a clean checkout and virtual environment:
 
 ```bash
-pip install build twine
-pybabel compile -d src/komandaro/locale -D komandaro
-rm -rf dist && python -m build && twine check --strict dist/*
-TWINE_USERNAME=__token__ TWINE_PASSWORD=pypi-... twine upload dist/*
+python -m pip install -e ".[dev]" build twine
+python tools/check_catalogues.py
+ruff check .
+ruff format --check .
+mypy
+python -m pytest --cov
+python -m build
+python -m twine check --strict dist/*
+python tools/check_dist.py
+python tools/smoke_wheel.py
 ```
 
-(`--repository testpypi` for a dry run, with a TestPyPI token.)
+Use an empty `dist/` directory; archive or remove only previous generated build
+outputs as appropriate. No manual `pybabel compile` step is needed. The isolated
+build hook regenerates MO files, including when rebuilding a wheel from the sdist.
+The wheel smoke check installs runtime dependencies in a temporary environment,
+then imports the installed wheel with `python -I` outside the checkout.
 
-## After the first release
+## TestPyPI and production
 
-* The badge and the *Homepage* link on PyPI come from `pyproject.toml`
-  (`[project.urls]`); the long description is `README.md`, whose links are
-  absolute so that they work on PyPI.
-* Add `python -m pip install komandaro` to your own checklist: install the
-  published wheel in a fresh virtualenv and run the tutorial's first block.
+A manual `target=testpypi` run may use a branch or a matching version tag. TestPyPI
+is a separate index and may not contain all runtime dependencies. To inspect a
+published test wheel, download that exact version without dependencies from
+TestPyPI, then install that local wheel in a fresh environment using the usual
+index for its dependencies. Do not mix public and test indexes indiscriminately.
+
+Production requires an exact tag `v<project.version>` for both tag-triggered and
+manual runs. Selecting `target=pypi` on a branch is rejected before building.
+A version-mismatched tag is rejected for either index. After all checks pass,
+create and push only the intended new tag, for example using the already updated
+project metadata:
+
+```bash
+version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+git tag -a "v$version" -m "Release $version"
+git push origin "v$version"
+```
+
+Ensure that the tag points to the reviewed commit containing the hardened workflow.
+Do not move an already published release tag. A published version cannot be reused
+for a corrected upload; publish a new version. These patches do not create a tag,
+push commits, change environment protections or publish anything automatically.
+
+After publishing, install the exact released version in a new environment and
+check imports, translations and a complete command/undo/redo cycle. The wheel
+built on Python 3.12 is the artifact uploaded after all matrix jobs succeed.
+
+Official references: [PyPI trusted publishers](https://docs.pypi.org/trusted-publishers/)
+and [GitHub deployment environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment).

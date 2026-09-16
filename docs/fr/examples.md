@@ -108,9 +108,12 @@ Supprimer une tranche détruit de l'information ; capturez-la d'abord.
 
 ```
 
-## Un virement bancaire : deux commandes, une action atomique
+## Un virement bancaire : deux commandes compensées
 
-Si le dépôt échoue, le retrait est annulé automatiquement.
+Dans cet exemple pédagogique en mémoire, l'échec du dépôt déclenche la
+compensation du retrait. En production, il faut une véritable transaction
+et une gestion de la concurrence ; une macro ne fournit pas ces garanties.
+Voir le [contrat de fiabilité](reliability.md) pour les échecs de réparation.
 
 ```pycon
 >>> from komandaro import Macro
