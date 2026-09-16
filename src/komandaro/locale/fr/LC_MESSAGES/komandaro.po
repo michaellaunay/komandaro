@@ -138,3 +138,6 @@ msgstr "La commande enfant ${name} n’est pas dans l’état attendu"
 
 msgid "macro_compensation_failed"
 msgstr "Échec de la compensation de la macro"
+
+msgid "invoker_busy"
+msgstr "Une opération de l’invocateur est déjà en cours"

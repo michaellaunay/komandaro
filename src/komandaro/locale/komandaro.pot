@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-16 16:00+0000\n"
+"POT-Creation-Date: 2026-09-16 16:02+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -61,15 +61,19 @@ msgstr ""
 msgid "macro_compensation_failed"
 msgstr ""
 
-#: src/komandaro/invoker.py:133
+#: src/komandaro/invoker.py:126
+msgid "invoker_busy"
+msgstr ""
+
+#: src/komandaro/invoker.py:184
 msgid "invoker_without_registry"
 msgstr ""
 
-#: src/komandaro/invoker.py:157
+#: src/komandaro/invoker.py:209
 msgid "nothing_to_undo"
 msgstr ""
 
-#: src/komandaro/invoker.py:172
+#: src/komandaro/invoker.py:225
 msgid "nothing_to_redo"
 msgstr ""
 

@@ -138,3 +138,6 @@ msgstr "Child command ${name} is not in the expected state"
 
 msgid "macro_compensation_failed"
 msgstr "Macro compensation failed"
+
+msgid "invoker_busy"
+msgstr "An invoker operation is already in progress"
