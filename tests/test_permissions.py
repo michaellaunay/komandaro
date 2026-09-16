@@ -140,11 +140,18 @@ def test_invoker_enforces_the_policy(calc):
     invoker.subject = {"admin"}  # per request / per session
     assert invoker.run("wipe") == "wipe"
 
-    # instances are checked too, and undo/redo are not (you undo what you did)
+    # Revocation applies to instances and to history transitions.
     invoker.subject = set()
     with pytest.raises(PermissionDeniedError):
         invoker.run(make("edit", "write")(calc))
+    with pytest.raises(PermissionDeniedError):
+        invoker.undo()
+    invoker.subject = {"admin"}
     invoker.undo()
+    invoker.subject = set()
+    with pytest.raises(PermissionDeniedError):
+        invoker.redo()
+    invoker.subject = {"admin"}
     invoker.redo()
 
 

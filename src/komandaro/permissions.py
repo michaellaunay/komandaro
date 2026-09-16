@@ -48,7 +48,7 @@ class PermissionDeniedError(RuntimeError):
         return self.message.localize(None, **self.params)
 
     def translate(self, language: Language = None, **kw: Any) -> str:
-        return self.message.localize(language, **kw, **self.params)
+        return self.message.localize(language, **(kw | self.params))
 
 
 def describe_permission(permission: Any) -> str:
@@ -94,10 +94,12 @@ def default_implies(held: Any, required: Any) -> bool:
     """
     if required is None:
         return True
+    # IntFlag compares equal to integers and to members of unrelated enums.
+    # Check the permission domain before equality or any bitwise operation.
+    if isinstance(held, Flag) or isinstance(required, Flag):
+        return type(held) is type(required) and bool((held & required) == required)
     if held == required:
         return True
-    if isinstance(held, Flag) and isinstance(required, Flag):
-        return (held & required) == required
     if isinstance(held, type) and isinstance(required, type):
         return issubclass(held, required)
     return isinstance(required, type) and isinstance(held, required)

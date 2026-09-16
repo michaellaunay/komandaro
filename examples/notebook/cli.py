@@ -38,13 +38,24 @@ from komandaro import (
 
 from .notebook import Notebook, make_registry
 
+
+def parse_bool(value: str) -> bool:
+    """Reject misspellings instead of silently treating every unknown value as false."""
+    normalized = value.strip().casefold()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise argparse.ArgumentTypeError(f"invalid boolean value: {value!r}")
+
+
 # How a zope.schema field type becomes an argparse option.
 CONVERTERS: dict[str, Callable[[str], Any]] = {
     "Int": int,
     "Float": float,
     "TextLine": str,
     "Text": str,
-    "Bool": lambda s: s.lower() in {"1", "true", "yes", "on"},
+    "Bool": parse_bool,
 }
 
 
@@ -93,7 +104,8 @@ class Session:
     """Runs command lines against one notebook, with undo/redo."""
 
     def __init__(self, notebook: Notebook | None = None, lang: str | None = None) -> None:
-        self.notebook = notebook or Notebook()
+        self.notebook = Notebook() if notebook is None else notebook
+        self.last_status = 0
         self.lang = lang
         self.registry = make_registry()
         self.invoker = Invoker(self.notebook, self.registry)
@@ -107,9 +119,17 @@ class Session:
 
     def run_line(self, line: str) -> bool:
         """Execute one command line; return False when the session should end."""
+        self.last_status = 0
         try:
-            ns = self.parser.parse_args(shlex.split(line))
-        except SystemExit:  # argparse already printed help or the error
+            arguments = shlex.split(line)
+        except ValueError as error:
+            self.last_status = 2
+            self.out(f"! ValueError: {error}")
+            return True
+        try:
+            ns = self.parser.parse_args(arguments)
+        except SystemExit as error:  # argparse already printed help or the error
+            self.last_status = int(error.code or 0)
             return True
         if ns.command in (None, "list"):
             self.out(str(self.notebook))
@@ -132,11 +152,14 @@ class Session:
             if result is not None:
                 self.out(str(result))
         except ParameterError as error:
+            self.last_status = 1
             for name, message in error.translate(self.lang).items():
                 self.out(f"! {name}: {message}")
         except (CommandStateError, HistoryError, RegistryError) as error:
+            self.last_status = 1
             self.out(f"! {error.translate(self.lang)}")
         except (IndexError, ValueError) as error:
+            self.last_status = 1
             self.out(f"! {type(error).__name__}: {error}")
 
     def loop(self, stdin: Any = sys.stdin) -> None:
@@ -148,16 +171,15 @@ class Session:
 
 def main(argv: Sequence[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    lang = None
-    if "--lang" in argv:
-        i = argv.index("--lang")
-        lang = argv[i + 1]
-        del argv[i : i + 2]
-    session = Session(lang=lang)
-    if argv:
-        session.run_line(shlex.join(argv))
-    else:
-        session.loop()
+    # argparse handles --lang=fr and reports a missing value as usage error 2.
+    options = argparse.ArgumentParser(prog="notebook", add_help=False, allow_abbrev=False)
+    options.add_argument("--lang")
+    configuration, arguments = options.parse_known_args(argv)
+    session = Session(lang=configuration.lang)
+    if arguments:
+        session.run_line(shlex.join(arguments))
+        return session.last_status
+    session.loop()
     return 0
 
 

@@ -126,3 +126,18 @@ msgstr "Invalid value for parameter ${name}: ${error}"
 msgid "field_invalid"
 msgstr "Invalid input"
 
+
+msgid "command_busy"
+msgstr "Command ${name} has a transition in progress"
+
+msgid "command_broken"
+msgstr "Command ${name} requires application recovery after failed compensation"
+
+msgid "macro_child_state"
+msgstr "Child command ${name} is not in the expected state"
+
+msgid "macro_compensation_failed"
+msgstr "Macro compensation failed"
+
+msgid "invoker_busy"
+msgstr "An invoker operation is already in progress"

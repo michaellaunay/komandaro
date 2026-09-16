@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from typing import Any
 
-from zope.interface import directlyProvides, implementer
+from zope.interface import directlyProvidedBy, directlyProvides, implementer
 
 from komandaro.i18n import Language, Message, _
 from komandaro.interfaces import (
+    IBrokenCommand,
     ICommand,
     IExecutedCommand,
     IMacro,
@@ -25,8 +27,8 @@ SnapshotFunction = Callable[..., Any]
 class CommandStateError(RuntimeError):
     """Raised when a life-cycle method is called in the wrong state.
 
-    The message is a lazy :class:`~komandaro.i18n.Message`; ``str(error)``
-    gives the untranslated text, :meth:`translate` gives the localised one.
+    The message is lazy; ``str(error)`` uses the process language and
+    :meth:`translate` selects an explicit language.
     """
 
     def __init__(self, message: Message, **params: Any) -> None:
@@ -40,7 +42,7 @@ class CommandStateError(RuntimeError):
 
     def translate(self, language: Language = None, **kw: Any) -> str:
         """Return the error message in *language*."""
-        return self.message.localize(language, **kw, **self.params)
+        return self.message.localize(language, **(kw | self.params))
 
 
 class BaseCommand:
@@ -81,6 +83,7 @@ class BaseCommand:
         self.params: dict[str, Any] = validate(self.schema, params)
         self.result: Any = None
         self.memento: Any = None
+        self._busy = False
         directlyProvides(self, ICommand)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -92,23 +95,23 @@ class BaseCommand:
     # -- public life cycle ---------------------------------------------------
 
     def execute(self) -> Any:
-        self._require(ICommand, _("command_already_executed"))
-        self.memento = self._snapshot()
-        self.result = self._do()
-        directlyProvides(self, IExecutedCommand)
-        return self.result
+        with self._transition(ICommand, _("command_already_executed")):
+            self.memento = self._snapshot()
+            self.result = self._do()
+            self._set_state(IExecutedCommand)
+            return self.result
 
     def undo(self) -> Any:
-        self._require(IExecutedCommand, _("command_not_undoable"))
-        value = self._undo()
-        directlyProvides(self, IUndoneCommand)
-        return value
+        with self._transition(IExecutedCommand, _("command_not_undoable")):
+            value = self._undo()
+            self._set_state(IUndoneCommand)
+            return value
 
     def redo(self) -> Any:
-        self._require(IUndoneCommand, _("command_not_redoable"))
-        self.result = self._redo()
-        directlyProvides(self, IExecutedCommand)
-        return self.result
+        with self._transition(IUndoneCommand, _("command_not_redoable")):
+            self.result = self._redo()
+            self._set_state(IExecutedCommand)
+            return self.result
 
     # -- state helpers -------------------------------------------------------
 
@@ -124,9 +127,42 @@ class BaseCommand:
     def is_undone(self) -> bool:
         return bool(IUndoneCommand.providedBy(self))
 
+    @property
+    def is_broken(self) -> bool:
+        """True after compensation could not restore a consistent macro."""
+        return bool(IBrokenCommand.providedBy(self))
+
+    def _set_state(self, state: Any) -> None:
+        markers = (ICommand, IExecutedCommand, IUndoneCommand, IBrokenCommand)
+        others = [
+            iface
+            for iface in directlyProvidedBy(self)
+            if not any(iface.isOrExtends(marker) for marker in markers)
+        ]
+        directlyProvides(self, *others, state)
+
     def _require(self, state: Any, message: Message) -> None:
+        if self._busy:
+            raise CommandStateError(_("command_busy"), name=self.name)
+        if self.is_broken:
+            raise CommandStateError(_("command_broken"), name=self.name)
         if not state.providedBy(self):
             raise CommandStateError(message, name=self.name)
+
+    @contextmanager
+    def _transition(self, state: Any, message: Message) -> Iterator[None]:
+        self._require(state, message)
+        self._busy = True
+        try:
+            yield
+        finally:
+            self._busy = False
+
+    def _reset_ready(self) -> None:
+        """Reset only an internally compensated, previously ready command."""
+        self.result = None
+        self.memento = None
+        self._set_state(ICommand)
 
     # -- to be implemented by subclasses -------------------------------------
 
@@ -144,7 +180,15 @@ class BaseCommand:
         return self._do()
 
     def __repr__(self) -> str:
-        state = "ready" if self.is_ready else "executed" if self.is_executed else "undone"
+        state = (
+            "broken"
+            if self.is_broken
+            else "ready"
+            if self.is_ready
+            else "executed"
+            if self.is_executed
+            else "undone"
+        )
         return f"<{type(self).__name__} {self.name!s} [{state}]>"
 
 
@@ -232,10 +276,12 @@ def SimpleCommandFactory(  # noqa: N802 — historical name kept on purpose
 class Macro(BaseCommand):
     """A composite command: executes its children in order, undoes in reverse.
 
-    Children are command *instances* already bound to a context (usually the
-    same one).  If a child raises during ``execute``, the children already
-    executed are undone in reverse order and the exception is re-raised, so
-    the macro is atomic.
+    Children are distinct command instances, organized as an acyclic tree.
+    Completed steps are compensated when a transition fails. A successful
+    compensation restores a retryable lifecycle; a failed compensation
+    marks the macro broken and raises a BaseExceptionGroup containing the
+    original error and every compensation error. Callbacks must be atomic
+    on their own failures: this is not a database transaction.
 
     Subclasses may declare a ``schema`` and build their children from
     ``self.params`` in ``__init__``; the keyword names ``commands``, ``name``
@@ -252,6 +298,7 @@ class Macro(BaseCommand):
     ) -> None:
         super().__init__(context, **params)
         self._commands: list[BaseCommand] = list(commands)
+        walk_commands(self)
         if name is not None:
             self.name = name
         if description is not None:
@@ -266,30 +313,85 @@ class Macro(BaseCommand):
 
     def add(self, command: BaseCommand) -> None:
         self._require(ICommand, _("macro_frozen"))
-        self._commands.append(command)
+        previous = self._commands
+        self._commands = [*previous, command]
+        try:
+            walk_commands(self)
+        except BaseException:
+            self._commands = previous
+            raise
 
     def remove(self, command: BaseCommand) -> None:
         self._require(ICommand, _("macro_frozen"))
         self._commands.remove(command)
 
-    def _run(self, step: Callable[[BaseCommand], Any]) -> list[Any]:
+    def _run(self, action: str, inverse: str, *, reverse: bool = False) -> list[Any]:
+        # Preflight the whole tree, including descendants, before any effect.
+        expected = {
+            "execute": ICommand,
+            "undo": IExecutedCommand,
+            "redo": IUndoneCommand,
+        }[action]
+        for child in walk_commands(self)[1:]:
+            child._require(expected, _("macro_child_state"))
+        children = tuple(reversed(self.commands)) if reverse else self.commands
         done: list[BaseCommand] = []
         results: list[Any] = []
         try:
-            for command in self._commands:
-                results.append(step(command))
+            for command in children:
+                results.append(getattr(command, action)())
                 done.append(command)
-        except BaseException:
+        except BaseException as original:
+            errors: list[BaseException] = []
             for command in reversed(done):
-                command.undo()
+                try:
+                    getattr(command, inverse)()
+                    if action == "execute":
+                        command._reset_ready()
+                except BaseException as error:
+                    errors.append(error)
+            if errors or any(child.is_broken for child in children):
+                self._set_state(IBrokenCommand)
+            if errors:
+                raise BaseExceptionGroup(
+                    _("macro_compensation_failed").localize(), [original, *errors]
+                ) from None
             raise
         return results
 
+    def _reset_ready(self) -> None:
+        for command in self.commands:
+            command._reset_ready()
+        super()._reset_ready()
+
     def _do(self) -> list[Any]:
-        return self._run(lambda c: c.execute())
+        return self._run("execute", "undo")
 
     def _redo(self) -> list[Any]:
-        return self._run(lambda c: c.redo())
+        return self._run("redo", "undo")
 
     def _undo(self) -> list[Any]:
-        return [command.undo() for command in reversed(self._commands)]
+        return self._run("undo", "redo", reverse=True)
+
+
+def walk_commands(command: BaseCommand) -> tuple[BaseCommand, ...]:
+    """Snapshot a command tree, rejecting cycles and shared instances.
+
+    A command instance has one lifecycle and cannot occupy two positions in
+    the same macro tree. The iterative traversal also avoids recursive loops
+    during authorization, before any business callback is invoked.
+    """
+    pending = [command]
+    seen: set[int] = set()
+    commands: list[BaseCommand] = []
+    while pending:
+        current = pending.pop()
+        if not isinstance(current, BaseCommand):
+            raise TypeError("macro children must be BaseCommand instances")
+        if id(current) in seen:
+            raise ValueError("command trees cannot contain cycles or shared instances")
+        seen.add(id(current))
+        commands.append(current)
+        if isinstance(current, Macro):
+            pending.extend(reversed(current.commands))
+    return tuple(commands)

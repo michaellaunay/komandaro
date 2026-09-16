@@ -126,3 +126,18 @@ msgstr "Nevalida valoro por la parametro ${name}: ${error}"
 msgid "field_invalid"
 msgstr "Nevalida enigo"
 
+
+msgid "command_busy"
+msgstr "Transiro de la komando ${name} jam okazas"
+
+msgid "command_broken"
+msgstr "La komando ${name} bezonas aplikaĵan riparon post malsukcesa kompenso"
+
+msgid "macro_child_state"
+msgstr "La subkomando ${name} ne estas en la atendata stato"
+
+msgid "macro_compensation_failed"
+msgstr "La kompenso de la makroo malsukcesis"
+
+msgid "invoker_busy"
+msgstr "Operacio de la invokilo jam okazas"

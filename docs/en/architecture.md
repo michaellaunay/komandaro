@@ -19,7 +19,7 @@ action is an object that:
 * knows its **name** and **description** (translatable),
 * is bound to an **execution context** (the application state),
 * can be **executed once**, **undone** and **redone**,
-* can be **composed** into atomic macros.
+* can be **composed** into macros with explicit compensation semantics.
 
 A front end — CLI, HTML, TUI, JSON, an AI agent — is then nothing more than
 a way to *choose* a command, *bind* it to a context, *execute* it and
@@ -64,7 +64,7 @@ src/komandaro/
 tests/               `python -m pytest`; every ```pycon block in README.md and docs/ runs too
 examples/notebook/   the tutorial application: logic (notebook.py), generated CLI (cli.py), fr catalogue
 docs/en, docs/fr     tutorial, how-it-works, examples, api, architecture (this document)
-.github/workflows/   CI: ruff, mypy, i18n check, pytest 3.12/3.13, build
+.github/workflows/   CI: ruff, mypy, i18n check, pytest 3.12/3.13/3.14, build
 ```
 
 ## 3. Interfaces: kinds and states
@@ -88,6 +88,7 @@ Two orthogonal families of `zope.interface` interfaces describe a command.
 | `ICommand` | ready | `execute()` |
 | `IExecutedCommand` | executed, reversible | `undo()` |
 | `IUndoneCommand` | undone, replayable | `redo()` |
+| `IBrokenCommand` | failed compensation; application recovery required | none |
 
 ```mermaid
 classDiagram
@@ -133,6 +134,10 @@ classDiagram
     IBaseCommand <|-- ICommand
     IBaseCommand <|-- IExecutedCommand
     IBaseCommand <|-- IUndoneCommand
+    class IBrokenCommand {
+        <<interface>>
+    }
+    IBaseCommand <|-- IBrokenCommand
     IBaseCommand <|-- ISimpleCommand
     IBaseCommand <|-- IMacro
 
@@ -147,6 +152,7 @@ classDiagram
         +is_ready
         +is_executed
         +is_undone
+        +is_broken
         #_snapshot()
         #_do()
         #_undo()
@@ -174,7 +180,7 @@ Why separate kinds and states? `zope.interface` refuses to remove an
 interface declared by the class (`noLongerProvides` raises `ValueError`).
 The 2014 prototype tried exactly that. By keeping kinds on the class and
 states on the instance, `directlyProvides(self, <state>)` replaces the
-whole set of *directly provided* interfaces without touching the kind, so
+state-related direct interfaces without removing unrelated markers or kinds, so
 `ISimpleCommand.providedBy(cmd)` stays true for the object's whole life
 while `ICommand.providedBy(cmd)` reflects its current state.
 
@@ -189,6 +195,10 @@ stateDiagram-v2
     Ready : provides ICommand
     Executed : provides IExecutedCommand
     Undone : provides IUndoneCommand
+    Ready --> Broken : compensation failed
+    Executed --> Broken : compensation failed
+    Undone --> Broken : compensation failed
+    Broken : IBrokenCommand
     note right of Ready
         Any other call raises
         CommandStateError
@@ -226,11 +236,14 @@ restores the same starting point.
 
 ### Macro
 
-A `Macro` holds child *instances* (usually bound to the same context). It
-executes them in order and undoes them in reverse order. It is
-**atomic**: if a child raises during `execute()` or `redo()`, the children
-already run are undone in reverse order and the exception propagates; the
-macro itself stays in its previous state.
+A `Macro` holds child instances in an acyclic tree, all bound to the invoker
+context when used through an invoker. Execute/redo run in order; undo runs
+in reverse. Failed transitions compensate every completed step. Successful
+compensation restores the previous lifecycle (including ready children after
+a failed initial execute). Failed compensation sets `IBrokenCommand` and
+groups the original and compensation errors. This is not database atomicity;
+the sequence below illustrates **successful compensation only**. See
+[reliability](reliability.md) for callback obligations and recovery.
 
 ```mermaid
 sequenceDiagram
@@ -364,8 +377,10 @@ A command declares the permission it requires (`permission`, any object,
 **subject**, asks `policy.permits(subject, required, command)` before
 running and raises `PermissionDeniedError` (event `denied`) on refusal;
 `registry.allowed(policy, subject)` gives a front end the entries it may
-show. Undo and redo are not re-checked: one may always revert one's own
-actions.
+show. Run, undo and redo re-check the current subject against the complete
+built-in macro tree. Revoked access also blocks history transitions. This is
+an intentional tightening of the 0.3.0 contract. Menu filtering is not an
+authorization boundary; see [reliability](reliability.md).
 
 ```mermaid
 classDiagram
@@ -471,8 +486,11 @@ errors of `zope.schema` fields are mapped to identifiers
 (`field_too_short`…) and translated like the rest.
 
 **Workflow.** `babel.cfg` configures extraction. `.po` files are versioned,
-`.mo` files are built (`pybabel compile`) and git-ignored. The CI checks
-that `komandaro.pot` matches the sources and that every catalogue compiles.
+`.mo` files are compiled automatically by `hatch_build.py` and remain
+git-ignored. `python tools/check_catalogues.py` compares complete identifiers,
+contexts and plurals, and checks placeholders and compilation for both
+domains. CI verifies the distributions and installs the wheel outside the
+checkout, without importing the source tree.
 
 ## 8. Roadmap
 
@@ -539,7 +557,7 @@ Asynchronous commands (`async def _do`), persistence of the history
 | States as marker interfaces, not an enum | Front ends can query `IExecutedCommand.providedBy(cmd)` and register adapters/views per state. An `is_*` property triad is provided for convenience. |
 | One instance per execution | Each instance is an immutable record of one action, which is what an undo history needs. |
 | Lazy messages, no global language | One process may serve many users; the locale belongs to the front end, not to the core. |
-| Python ≥ 3.12, `src/` layout, hatchling | Modern packaging, no namespace package, tests run against the installed package. |
+| Python ≥ 3.12, `src/` layout, hatchling | Modern packaging, no namespace package, source-tree tests plus a separate installed-wheel smoke test. |
 | AGPL-3.0-or-later | Copyleft that also covers network use, consistent with the author's other projects. |
 
 ## 10. History

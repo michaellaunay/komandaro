@@ -13,6 +13,7 @@ the instance and swapped at each transition:
 * :class:`ICommand` — ready, can be executed once.
 * :class:`IExecutedCommand` — has been executed, can be undone.
 * :class:`IUndoneCommand` — has been undone, can be redone.
+* :class:`IBrokenCommand` — compensation failed; application recovery required.
 
 Keeping kinds and states separate is what allows
 ``zope.interface.directlyProvides`` to switch the state marker without ever
@@ -100,6 +101,10 @@ class IUndoneCommand(IBaseCommand):
         """Execute again with the same context and parameters."""
 
 
+class IBrokenCommand(IBaseCommand):
+    """A failed compensation left the command unusable until application recovery."""
+
+
 # --------------------------------------------------------------------------
 # Kinds
 # --------------------------------------------------------------------------
@@ -119,8 +124,9 @@ class ISimpleCommand(IBaseCommand):
 class IMacro(IBaseCommand):
     """A command made of sub-commands executed in order, undone in reverse.
 
-    Execution is atomic: if a sub-command fails, the ones already executed
-    are undone (in reverse order) before the exception propagates.
+    Completed steps are compensated before a failure propagates. Failed
+    compensation marks the macro broken; business callbacks must themselves
+    be atomic on failure. This interface does not guarantee database atomicity.
     """
 
     commands = Attribute("Tuple of the sub-commands, in execution order.")
@@ -220,13 +226,17 @@ class IInvoker(Interface):
 
     context = Attribute("The context commands are bound to.")
     registry = Attribute("Optional IRegistry used to create commands by id.")
-    policy = Attribute("Optional IPermissionPolicy consulted before running.")
+    policy = Attribute("Optional policy consulted before run, undo and redo.")
     subject = Attribute("Who is running the commands (opaque, for the policy).")
     limit = Attribute("Maximum size of the undo stack, or None.")
     history = Attribute("Executed commands, oldest first.")
     undone = Attribute("Undone commands awaiting redo, oldest first.")
-    can_undo = Attribute("Whether undo() would succeed.")
-    can_redo = Attribute("Whether redo() would succeed.")
+    can_undo = Attribute(
+        "Whether the undo stack is nonempty; not a permission or success guarantee."
+    )
+    can_redo = Attribute(
+        "Whether the redo stack is nonempty; not a permission or success guarantee."
+    )
 
     def create(id, **params):
         """Instantiate command *id* via the registry, bound to this context."""

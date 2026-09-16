@@ -70,10 +70,10 @@ Deux façons d'écrire une commande :
   quand il vous faut des méthodes, de l'héritage ou un `_redo()`
   particulier.
 
-### Les trois états
+### États normaux et échec de réparation
 
-Une instance est toujours dans exactement un état, et chaque état
-n'autorise qu'un appel :
+Une commande possède trois états normaux. Une macro peut aussi devenir
+inutilisable si sa compensation échoue ; aucune transition n'est alors permise :
 
 ```mermaid
 stateDiagram-v2
@@ -84,6 +84,9 @@ stateDiagram-v2
     Ready --> Executed : execute()
     Executed --> Undone : undo()
     Undone --> Executed : redo()
+    Ready --> Broken : échec de compensation
+    Executed --> Broken : échec de compensation
+    Undone --> Broken : échec de compensation
 ```
 
 Tout autre appel lève `CommandStateError`, une erreur traduisible. L'état
@@ -91,6 +94,10 @@ se lit de deux façons : les propriétés `is_ready`, `is_executed`,
 `is_undone`, ou — pour le code de tradition Zope — les interfaces
 marqueurs `ICommand`, `IExecutedCommand`, `IUndoneCommand` que l'instance
 *fournit* dans cet état (`IExecutedCommand.providedBy(cmd)`).
+
+`is_broken` / `IBrokenCommand` signale une réparation échouée. Restaurez
+explicitement le contexte applicatif puis recréez commande et historique ;
+ne forcez pas les marqueurs. Voir le [contrat de fiabilité](reliability.md).
 
 ### Paramètres et schéma
 

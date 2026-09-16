@@ -52,17 +52,19 @@ La classe de base renvoyée par la fabrique ; `do_it`, `undo_it`,
 
 ### `Macro(context, commands=(), name=None, description=None, **params)`
 
-Commande composite. `commands` sont des *instances* enfants. `add(cmd)` /
-`remove(cmd)` tant qu'elle est prête ; propriété `commands` (tuple).
-L'exécution et le rétablissement sont atomiques (les enfants déjà
-exécutés sont annulés en cas d'échec) ; l'annulation se fait en ordre
-inverse. Les sous-classes peuvent déclarer un `schema` et construire leurs
-enfants à partir de `self.params`.
+Commande composite. Les enfants sont des instances distinctes dans un arbre
+sans cycle. `add(cmd)` / `remove(cmd)` sont possibles à l'état prêt, hors
+transition ; `commands` est un tuple. Execute/redo suivent l'ordre des enfants,
+undo l'ordre inverse. Un échec déclenche la compensation des étapes terminées.
+Une compensation réussie restaure un état réessayable ; sinon la macro devient
+inutilisable (`is_broken`, `IBrokenCommand`) et conserve toutes les erreurs.
+Ce n'est pas une transaction. Les sous-classes peuvent construire les enfants
+depuis `self.params` validés. Voir le [contrat de fiabilité](reliability.md).
 
 ### `CommandStateError(message, **params)`
 
-`RuntimeError` ; `str()` donne l'identifiant du message,
-`translate(language, localedir=None)` le texte localisé.
+`RuntimeError` ; `str()` traduit dans la langue du processus ;
+`translate(language, localedir=None)` choisit explicitement la langue.
 
 ## Interfaces — `komandaro.interfaces`
 
@@ -70,7 +72,8 @@ enfants à partir de `self.params`.
 `name`, `description`, `schema`, `permission`, `context`, `params`,
 `result`, `memento`).
 États, fournis directement sur les instances : `ICommand` (`execute`),
-`IExecutedCommand` (`undo`), `IUndoneCommand` (`redo`).
+`IExecutedCommand` (`undo`), `IUndoneCommand` (`redo`),
+`IBrokenCommand` (aucune transition permise ; réparation applicative requise).
 Genres, déclarés sur les classes : `ISimpleCommand` (`do_it`, `undo_it`,
 `snapshot_it`), `IMacro` (`commands`, `add`, `remove`).
 Collaborateurs : `IEntry`, `IRegistry`, `IInvoker`, `IEvent`,
@@ -135,12 +138,18 @@ double ; `translate(language)`.
 | `subscribe(handler) → unsubscribe` | observer les `Event` |
 | `history`, `undone` (tuples, du plus ancien au plus récent), `can_undo`, `can_redo`, `len`, itération | introspection |
 
-`limit` plafonne la pile d'annulation (les entrées les plus anciennes sont
-abandonnées). Avec une `policy`, `run` vérifie d'abord
-`policy.permits(subject, command.permission, command)` et lève
-`PermissionDeniedError` (événement `denied`) en cas de refus ; `subject`
-est un simple attribut, réassignable par requête ou par session. Annuler
-et rétablir ne sont jamais revérifiés.
+`limit` accepte `None` (sans plafond), zéro ou un entier positif ; les booléens
+et valeurs invalides sont refusés avant exécution. La réduction intervient
+après run/redo réussi, pas immédiatement lors d'une réaffectation de `limit`.
+Avec une politique, **run, undo et redo** contrôlent le sujet courant et tous
+les descendants d'une macro avant les callbacks métier. Un refus lève
+`PermissionDeniedError` et émet `denied` pour l'enfant refusé. Chaque contexte
+doit être l'objet exact de l'invocateur. Isolez l'historique par contexte et
+principal ; `can_undo`/`can_redo` indiquent seulement des piles non vides.
+Les exceptions ordinaires des observateurs sont journalisées et isolées ;
+les interruptions du processus se propagent après enregistrement d'une
+transition réussie. Une mutation réentrante de l'historique lève `HistoryError`.
+Voir le [contrat de fiabilité](reliability.md).
 
 `Event` (dataclass figée) : `kind: EventKind`, `command`, `error`, `at`
 (UTC). `EventKind` : `EXECUTED`, `UNDONE`, `REDONE`, `FAILED`, `DENIED`,
@@ -197,3 +206,7 @@ depuis les `.po` avec `pybabel compile`.
 
 Les cinq ont `translate(language)` ; `str()` donne le message dans la
 langue du processus (l'anglais s'il n'en a pas).
+
+## Fiabilité et migration
+
+Voir les [contrats des échecs, permissions, défauts et observateurs](reliability.md).

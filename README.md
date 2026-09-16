@@ -24,6 +24,7 @@ touching that logic.
 | Step by step, with running code | [Tutorial](https://github.com/michaellaunay/komandaro/blob/main/docs/en/tutorial.md) | [Tutoriel](https://github.com/michaellaunay/komandaro/blob/main/docs/fr/tutorial.md) |
 | Patterns and snippets | [Examples](https://github.com/michaellaunay/komandaro/blob/main/docs/en/examples.md) | [Exemples](https://github.com/michaellaunay/komandaro/blob/main/docs/fr/examples.md) |
 | Every public name | [API reference](https://github.com/michaellaunay/komandaro/blob/main/docs/en/api.md) | [Référence de l'API](https://github.com/michaellaunay/komandaro/blob/main/docs/fr/api.md) |
+| Reliability and migration | [Contracts](https://github.com/michaellaunay/komandaro/blob/main/docs/en/reliability.md) | [Contrats](https://github.com/michaellaunay/komandaro/blob/main/docs/fr/reliability.md) |
 | Design, diagrams, roadmap | [Architecture](https://github.com/michaellaunay/komandaro/blob/main/docs/en/architecture.md) | [Architecture](https://github.com/michaellaunay/komandaro/blob/main/docs/fr/architecture.md) |
 
 A complete example application — a notebook whose logic is written once as
@@ -35,8 +36,8 @@ python -m examples.notebook.cli --lang fr     # interactive session
 python -m examples.notebook.cli add --text "Buy milk"
 ```
 
-Every `pycon` block in the README and in `docs/` is executed by the test
-suite, so the documentation cannot drift from the code.
+Every `pycon` block in the README and in `docs/` is collected by the test
+suite. Narrative text and diagrams still require review.
 
 Always run the tests as `python -m pytest` rather than `pytest`: the
 module form uses the interpreter of the active virtual environment, whereas
@@ -113,8 +114,11 @@ Command Add has already been executed
 ### Macros
 
 A `Macro` groups commands. They run in order, undo in reverse order, and
-the macro is **atomic**: if one child fails, the children already run are
-undone before the exception propagates.
+completed children are **compensated** if a later child fails. This is not
+a database transaction: callbacks must be exception-safe. Successful
+compensation permits retry; failed compensation marks the macro broken
+and preserves the original and recovery errors. See the
+[reliability contract](https://github.com/michaellaunay/komandaro/blob/main/docs/en/reliability.md).
 
 ```pycon
 >>> from komandaro import Macro
@@ -253,7 +257,7 @@ pip install -e ".[dev]"
 pre-commit install                                      # ruff, mypy and .pot freshness at each commit
 python -m pytest                                        # tests + doctests of README.md and docs/
 ruff check . && ruff format --check . && mypy
-pybabel compile -d src/komandaro/locale -D komandaro   # build the .mo files for a manual run
+python tools/check_catalogues.py                         # ids, placeholders and compilation
 ```
 
 Updating translations after changing a `_()` string:

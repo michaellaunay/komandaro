@@ -67,10 +67,10 @@ Two ways to write a command:
 * a subclass of `BaseCommand` implementing `_do()` and `_undo()` — when you
   need methods, inheritance or a custom `_redo()`.
 
-### The three states
+### Normal states and failed recovery
 
-An instance is always in exactly one state, and each state allows one
-call:
+A command has three normal states. A macro can additionally enter a broken
+state if compensation fails; no transition is then allowed:
 
 ```mermaid
 stateDiagram-v2
@@ -78,6 +78,9 @@ stateDiagram-v2
     Ready --> Executed : execute()
     Executed --> Undone : undo()
     Undone --> Executed : redo()
+    Ready --> Broken : compensation failed
+    Executed --> Broken : compensation failed
+    Undone --> Broken : compensation failed
 ```
 
 Calling anything else raises `CommandStateError`, a translatable error.
@@ -85,6 +88,10 @@ The state is visible two ways: the properties `is_ready`, `is_executed`,
 `is_undone`, or — for code in the Zope tradition — the marker interfaces
 `ICommand`, `IExecutedCommand`, `IUndoneCommand` that the instance
 *provides* in that state (`IExecutedCommand.providedBy(cmd)`).
+
+`is_broken` / `IBrokenCommand` identifies failed recovery. Restore the
+application context explicitly, then create a new command/history; do not
+force state markers. See [reliability](reliability.md).
 
 ### Parameters and the schema
 
