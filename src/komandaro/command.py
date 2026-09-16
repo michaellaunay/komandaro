@@ -232,6 +232,10 @@ class Macro(BaseCommand):
     same one).  If a child raises during ``execute``, the children already
     executed are undone in reverse order and the exception is re-raised, so
     the macro is atomic.
+
+    Subclasses may declare a ``schema`` and build their children from
+    ``self.params`` in ``__init__``; the keyword names ``commands``, ``name``
+    and ``description`` are reserved and cannot be parameters.
     """
 
     def __init__(
@@ -240,8 +244,9 @@ class Macro(BaseCommand):
         commands: Iterable[BaseCommand] = (),
         name: str | Message | None = None,
         description: str | Message | None = None,
+        **params: Any,
     ) -> None:
-        super().__init__(context)
+        super().__init__(context, **params)
         self._commands: list[BaseCommand] = list(commands)
         if name is not None:
             self.name = name

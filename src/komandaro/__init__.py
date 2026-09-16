@@ -25,7 +25,7 @@ from komandaro.invoker import Event, EventKind, HistoryError, Invoker
 from komandaro.registry import Entry, Registry, RegistryError
 from komandaro.schema import ParameterError, ParameterInfo, ParameterIssue, describe, validate
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 __all__ = [
     "BaseCommand",

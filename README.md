@@ -14,9 +14,34 @@ form, a TUI, a JSON API or an AI agent tool — without duplicating or
 touching that logic.
 
 > Komandaro is the 2026 rebirth of `ecreall.command`, a 2014 prototype.
-> See [`docs/en/architecture.md`](docs/en/architecture.md) (English) or
-> [`docs/fr/architecture.md`](docs/fr/architecture.md) (French) for the
-> design and the roadmap.
+
+## Documentation
+
+| | English | Français |
+|---|---|---|
+| The ideas in plain words | [How it works](docs/en/how-it-works.md) | [Comment ça marche](docs/fr/how-it-works.md) |
+| Step by step, with running code | [Tutorial](docs/en/tutorial.md) | [Tutoriel](docs/fr/tutorial.md) |
+| Patterns and snippets | [Examples](docs/en/examples.md) | [Exemples](docs/fr/examples.md) |
+| Every public name | [API reference](docs/en/api.md) | [Référence de l'API](docs/fr/api.md) |
+| Design, diagrams, roadmap | [Architecture](docs/en/architecture.md) | [Architecture](docs/fr/architecture.md) |
+
+A complete example application — a notebook whose logic is written once as
+commands and driven by a generated command line — lives in
+[`examples/notebook/`](examples/notebook/):
+
+```bash
+python -m examples.notebook.cli --lang fr     # interactive session
+python -m examples.notebook.cli add --text "Buy milk"
+```
+
+Every `pycon` block in the README and in `docs/` is executed by the test
+suite, so the documentation cannot drift from the code.
+
+Always run the tests as `python -m pytest` rather than `pytest`: the
+module form uses the interpreter of the active virtual environment, whereas
+a bare `pytest` may resolve to a system-wide install that cannot see the
+project's dependencies. (The test session compiles the catalogues itself
+and pins `LANGUAGE=en`, so results do not depend on your shell's locale.)
 
 ## Install
 
@@ -202,9 +227,9 @@ own catalogues. Every error type (`CommandStateError`, `ParameterError`,
 git clone git@github.com:michaellaunay/komandaro.git && cd komandaro
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-pybabel compile -d src/komandaro/locale -D komandaro   # build the .mo files
-pytest                                                  # tests + README doctests
+python -m pytest                                        # tests + doctests of README.md and docs/
 ruff check . && ruff format --check . && mypy
+pybabel compile -d src/komandaro/locale -D komandaro   # build the .mo files for a manual run
 ```
 
 Updating translations after changing a `_()` string:

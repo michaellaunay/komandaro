@@ -1,0 +1,72 @@
+# French translations for notebook.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the notebook project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: notebook VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-16 12:44+0000\n"
+"PO-Revision-Date: 2026-09-16 12:44+0000\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: fr\n"
+"Language-Team: fr <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: examples/notebook/notebook.py:44
+msgid "Text"
+msgstr "Texte"
+
+#: examples/notebook/notebook.py:44
+msgid "Content of the note"
+msgstr "Contenu de la note"
+
+#: examples/notebook/notebook.py:48 examples/notebook/notebook.py:52
+msgid "Position"
+msgstr "Position"
+
+#: examples/notebook/notebook.py:48
+msgid "1-based position of the note"
+msgstr "Position de la note (à partir de 1)"
+
+#: examples/notebook/notebook.py:53
+msgid "New text"
+msgstr "Nouveau texte"
+
+#: examples/notebook/notebook.py:57
+msgid "Notes"
+msgstr "Notes"
+
+#: examples/notebook/notebook.py:74
+msgid "Add a note"
+msgstr "Ajouter une note"
+
+#: examples/notebook/notebook.py:87
+msgid "Remove a note"
+msgstr "Supprimer une note"
+
+#: examples/notebook/notebook.py:109
+msgid "Rename a note"
+msgstr "Renommer une note"
+
+#: examples/notebook/notebook.py:117
+msgid "Clear the notebook"
+msgstr "Vider le carnet"
+
+#: examples/notebook/notebook.py:118
+msgid "Remove every note"
+msgstr "Supprimer toutes les notes"
+
+#: examples/notebook/notebook.py:140
+msgid "Import notes"
+msgstr "Importer des notes"
+
+#: examples/notebook/notebook.py:141
+msgid "Add several notes as one action"
+msgstr "Ajouter plusieurs notes en une seule action"
+

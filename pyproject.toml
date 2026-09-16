@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "komandaro"
-version = "0.2.0"
+version = "0.2.1"
 description = "Undoable Command pattern toolkit: write logic once, expose it as CLI, HTML, TUI or API."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -47,12 +47,12 @@ artifacts = ["src/komandaro/locale/*/LC_MESSAGES/*.mo"]
 packages = ["src/komandaro"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src", "tests", "docs", "README.md", "CHANGELOG.md", "LICENSE", "babel.cfg"]
+include = ["src", "tests", "docs", "examples", "README.md", "CHANGELOG.md", "LICENSE", "babel.cfg"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "README.md"]
-addopts = "--doctest-glob=README.md --doctest-modules -p no:cacheprovider"
-pythonpath = ["src"]
+testpaths = ["tests", "README.md", "docs"]
+addopts = "--doctest-glob=*.md --doctest-modules -p no:cacheprovider"
+pythonpath = ["src", "."]
 
 [tool.coverage.run]
 source = ["komandaro"]
@@ -65,7 +65,7 @@ show_missing = true
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests"]
+src = ["src", "tests", "examples"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
@@ -74,6 +74,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]  # accented characters in French strings
 [tool.ruff.lint.per-file-ignores]
 "src/komandaro/interfaces.py" = ["N805"]  # zope interface methods have no self
 "tests/*" = ["N806"]  # command classes built inside tests keep CamelCase
+"examples/*" = ["N806"]
 
 [tool.mypy]
 python_version = "3.12"

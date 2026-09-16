@@ -3,6 +3,35 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.2.1] — 2026-09-16
+
+Documentation release.
+
+### Added
+- Documentation set in English and French under `docs/`: *How it works*
+  (the ideas in plain words), *Tutorial* (step by step, every block
+  executed by the test suite), *Examples* (patterns: counter, text buffer,
+  memento, atomic bank transfer, audit log, custom redo, entry points),
+  *API reference*, plus the refreshed *Architecture*; `docs/README.md`
+  index and a Documentation section in the README.
+- `examples/notebook/`: the tutorial application — its logic as commands
+  (`notebook.py`), a command line generated from the registry (`cli.py`,
+  interactive or one-shot, `--lang`), and a French catalogue in its own
+  gettext domain. Covered by `tests/test_examples.py`.
+- pytest now runs every ```pycon block under `docs/` (`--doctest-glob=*.md`);
+  a session fixture compiles the `.po` catalogues so tests and doctests
+  translate without a prior `pybabel compile`.
+
+### Changed
+- Tests are run as `python -m pytest` (documented everywhere): a bare
+  `pytest` may resolve to a system-wide install outside the virtual
+  environment. The test session pins `LANGUAGE=en` so that untranslated
+  expectations hold on machines with another locale; the tutorial's CLI
+  session passes `lang="en"` explicitly and explains why.
+- `Macro.__init__` accepts `**params` validated against the subclass
+  `schema` (the keyword names `commands`, `name`, `description` stay
+  reserved), so macros can build their children from parameters.
+
 ## [0.2.0] — 2026-09-16
 
 Phase 2: commands describe themselves; an invoker runs them.

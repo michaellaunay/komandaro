@@ -2,6 +2,11 @@
 
 *English version: [`docs/en/architecture.md`](../en/architecture.md)*
 
+Ce document est la référence de conception. Si vous découvrez Komandaro,
+commencez par [Comment ça marche](how-it-works.md) (les idées en mots
+simples) et le [tutoriel](tutorial.md) (les mêmes idées en code qui
+s'exécute) ; la [référence de l'API](api.md) liste chaque nom public.
+
 ## 1. Finalité
 
 Komandaro répond à une seule question : **comment écrire une application
@@ -57,8 +62,9 @@ src/komandaro/
 ├── invoker.py       Invoker, Event, EventKind, HistoryError
 ├── i18n.py          Message, make_gettext, translate
 └── locale/          komandaro.pot + <lang>/LC_MESSAGES/komandaro.po
-tests/               suite pytest (les doctests du README sont exécutés aussi)
-docs/en, docs/fr     ce document
+tests/               `python -m pytest` ; chaque bloc ```pycon de README.md et docs/ s'exécute aussi
+examples/notebook/   l'application du tutoriel : logique (notebook.py), CLI générée (cli.py), catalogue fr
+docs/en, docs/fr     tutoriel, comment ça marche, exemples, api, architecture (ce document)
 .github/workflows/   CI : ruff, mypy, vérification i18n, pytest 3.12/3.13, build
 ```
 
