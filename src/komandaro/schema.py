@@ -23,6 +23,7 @@ The schema serves two purposes:
 from __future__ import annotations
 
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -136,12 +137,28 @@ def describe(schema: InterfaceClass | None) -> list[ParameterInfo]:
                 title=fld.title or name,
                 description=fld.description or "",
                 required=bool(fld.required),
-                default=fld.default,
+                default=_default_value(fld),
                 choices=choices,
                 field=fld,
             )
         )
     return infos
+
+
+def _default_value(fld: Any) -> Any:
+    """Copy static container defaults, but preserve factory and object identity.
+
+    Zope returns a static default by reference. A defaultFactory already
+    owns the creation policy; application objects are not implicitly cloned.
+    """
+    value = fld.default
+    if (
+        not IChoice.providedBy(fld)
+        and getattr(fld, "defaultFactory", None) is None
+        and isinstance(value, dict | list | set | bytearray | tuple)
+    ):
+        return deepcopy(value)
+    return value
 
 
 def validate(schema: InterfaceClass | None, params: Mapping[str, Any]) -> dict[str, Any]:
@@ -170,7 +187,7 @@ def validate(schema: InterfaceClass | None, params: Mapping[str, Any]) -> dict[s
             issues.append(ParameterIssue(name, _("missing_parameter"), {"name": name}))
             continue
         else:
-            value = fld.default
+            value = _default_value(fld)
         if value is None and not fld.required:
             result[name] = None
             continue

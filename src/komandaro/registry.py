@@ -96,7 +96,11 @@ class Registry:
         """Register *command* (a class) and return its :class:`Entry`."""
         if not (isinstance(command, type) and issubclass(command, BaseCommand)):
             raise TypeError(f"expected a BaseCommand subclass, got {command!r}")
-        ident = id or command.id
+        ident = command.id if id is None else id
+        if not isinstance(ident, str):
+            raise TypeError("command ids must be strings")
+        if not ident.strip():
+            raise ValueError("command ids cannot be empty")
         if ident in self._entries and not replace:
             raise RegistryError(_("command_already_registered"), id=ident)
         entry = Entry(ident, command, group, frozenset(tags))
@@ -182,7 +186,10 @@ class Registry:
 
     def create(self, id: str, context: Any, **params: Any) -> BaseCommand:
         """Instantiate command *id* bound to *context* with *params*."""
-        return self._require(id).command(context, **params)
+        entry = self._require(id)
+        command = entry.command(context, **params)
+        command.id = entry.id
+        return command
 
 
 __all__ = ["Entry", "Registry", "RegistryError"]
