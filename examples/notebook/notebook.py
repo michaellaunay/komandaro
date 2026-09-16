@@ -9,6 +9,7 @@ Run the tests with ``python -m pytest tests/test_examples.py``.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -134,7 +135,7 @@ class Clear(BaseCommand):
 
 
 # --------------------------------------------------------------------------
-# A macro: several notes imported as one atomic, undoable action
+# A macro: several notes imported as one compensated, undoable action
 # --------------------------------------------------------------------------
 
 
@@ -145,9 +146,13 @@ class Import(Macro):
     schema = IImport
 
     def __init__(self, context: Notebook, **params: object) -> None:
-        super().__init__(context, **params)
-        for text in self.params["notes"]:
-            self.add(Add(context, text=text))
+        def children() -> Iterator[BaseCommand]:
+            # Macro consumes this generator after BaseCommand validates params.
+            # One tree validation avoids repeated scans for large imports.
+            for text in self.params["notes"]:
+                yield Add(context, text=text)
+
+        super().__init__(context, commands=children(), **params)
 
 
 # --------------------------------------------------------------------------
