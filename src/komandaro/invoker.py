@@ -25,7 +25,7 @@ from typing import Any
 
 from zope.interface import implementer
 
-from komandaro.command import BaseCommand
+from komandaro.command import BaseCommand, walk_commands
 from komandaro.i18n import Language, Message, _
 from komandaro.interfaces import IEvent, IInvoker
 from komandaro.permissions import PermissionDeniedError, Policy
@@ -73,9 +73,9 @@ Handler = Callable[[Event], None]
 class Invoker:
     """Executes commands against one context and keeps their history.
 
-    With a *policy*, every ``run`` first checks that *subject* may run the
-    command (``PermissionDeniedError`` otherwise, and a ``denied`` event).
-    ``subject`` can be reassigned at any time — per request, per session.
+    With a *policy*, ``run``, ``undo`` and ``redo`` authorize the current
+    subject against the entire command tree before executing any callback.
+    Applications must isolate histories by context and security principal.
     """
 
     def __init__(
@@ -112,6 +112,19 @@ class Invoker:
         for handler in list(self._handlers):
             handler(event)
 
+    def _authorize(self, command: BaseCommand) -> None:
+        tree = walk_commands(command)
+        # Identity matters: equal-looking contexts may belong to other users.
+        if any(child.context is not self.context for child in tree):
+            raise ValueError("all commands must belong to the invoker context")
+        if self.policy is None:
+            return
+        for child in tree:
+            if not self.policy.permits(self.subject, child.permission, child):
+                denied = PermissionDeniedError(child.id, child.permission, self.subject)
+                self._emit(EventKind.DENIED, child, denied)
+                raise denied
+
     # -- running -------------------------------------------------------------
 
     def create(self, id: str, **params: Any) -> BaseCommand:
@@ -126,11 +139,7 @@ class Invoker:
             command = self.create(command, **params)
         elif params:
             raise TypeError("parameters are only accepted with a registry id")
-        required = command.permission
-        if self.policy is not None and not self.policy.permits(self.subject, required, command):
-            denied = PermissionDeniedError(command.id, required, self.subject)
-            self._emit(EventKind.DENIED, command, denied)
-            raise denied
+        self._authorize(command)
         try:
             result = command.execute()
         except BaseException as error:
@@ -147,6 +156,7 @@ class Invoker:
         if not self._undo:
             raise HistoryError(_("nothing_to_undo"))
         command = self._undo[-1]
+        self._authorize(command)
         try:
             value = command.undo()
         except BaseException as error:
@@ -161,6 +171,7 @@ class Invoker:
         if not self._redo:
             raise HistoryError(_("nothing_to_redo"))
         command = self._redo[-1]
+        self._authorize(command)
         try:
             value = command.redo()
         except BaseException as error:

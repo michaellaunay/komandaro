@@ -293,3 +293,26 @@ class Macro(BaseCommand):
 
     def _undo(self) -> list[Any]:
         return [command.undo() for command in reversed(self._commands)]
+
+
+def walk_commands(command: BaseCommand) -> tuple[BaseCommand, ...]:
+    """Snapshot a command tree, rejecting cycles and shared instances.
+
+    A command instance has one lifecycle and cannot occupy two positions in
+    the same macro tree. The iterative traversal also avoids recursive loops
+    during authorization, before any business callback is invoked.
+    """
+    pending = [command]
+    seen: set[int] = set()
+    commands: list[BaseCommand] = []
+    while pending:
+        current = pending.pop()
+        if not isinstance(current, BaseCommand):
+            raise TypeError("macro children must be BaseCommand instances")
+        if id(current) in seen:
+            raise ValueError("command trees cannot contain cycles or shared instances")
+        seen.add(id(current))
+        commands.append(current)
+        if isinstance(current, Macro):
+            pending.extend(reversed(current.commands))
+    return tuple(commands)
