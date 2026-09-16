@@ -5,9 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 
 ## [0.2.1] — 2026-09-16
 
-Documentation release.
+Documentation release; first version published on PyPI.
 
 ### Added
+- `Release` workflow: on a `v*` tag (or manually, with a TestPyPI dry run),
+  checks the tag against the version, runs the tests, builds, verifies the
+  distributions and publishes through PyPI trusted publishing.
+  `docs/*/releasing.md` describe the one-time setup; `tests/test_version.py`
+  keeps `__version__` and `pyproject.toml` in step.
 - Documentation set in English and French under `docs/`: *How it works*
   (the ideas in plain words), *Tutorial* (step by step, every block
   executed by the test suite), *Examples* (patterns: counter, text buffer,

@@ -7,6 +7,7 @@
 | Patterns and snippets | [Examples](en/examples.md) | [Exemples](fr/examples.md) |
 | Every public name | [API reference](en/api.md) | [Référence de l'API](fr/api.md) |
 | Design, diagrams, roadmap | [Architecture](en/architecture.md) | [Architecture](fr/architecture.md) |
+| Publishing a version to PyPI | [Releasing](en/releasing.md) | [Publier sur PyPI](fr/releasing.md) |
 
 The complete example application is in [`../examples/notebook/`](../examples/notebook/).
 

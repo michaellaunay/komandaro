@@ -38,6 +38,7 @@ dev = [
 Homepage = "https://github.com/michaellaunay/komandaro"
 Repository = "https://github.com/michaellaunay/komandaro"
 Issues = "https://github.com/michaellaunay/komandaro/issues"
+Changelog = "https://github.com/michaellaunay/komandaro/blob/main/CHANGELOG.md"
 
 [tool.hatch.build]
 # compiled catalogues are git-ignored but must ship in the wheel: build after `pybabel compile`

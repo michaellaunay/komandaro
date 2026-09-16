@@ -1,8 +1,8 @@
 # Komandaro
 
 [![CI](https://github.com/michaellaunay/komandaro/actions/workflows/ci.yml/badge.svg)](https://github.com/michaellaunay/komandaro/actions/workflows/ci.yml)
-[![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSE)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](pyproject.toml)
+[![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](https://github.com/michaellaunay/komandaro/blob/main/LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://github.com/michaellaunay/komandaro/blob/main/pyproject.toml)
 
 **Komandaro** (Esperanto: *a set of commands*) is a small Python toolkit
 implementing the *Command* design pattern with undo/redo, composite
@@ -19,15 +19,15 @@ touching that logic.
 
 | | English | Français |
 |---|---|---|
-| The ideas in plain words | [How it works](docs/en/how-it-works.md) | [Comment ça marche](docs/fr/how-it-works.md) |
-| Step by step, with running code | [Tutorial](docs/en/tutorial.md) | [Tutoriel](docs/fr/tutorial.md) |
-| Patterns and snippets | [Examples](docs/en/examples.md) | [Exemples](docs/fr/examples.md) |
-| Every public name | [API reference](docs/en/api.md) | [Référence de l'API](docs/fr/api.md) |
-| Design, diagrams, roadmap | [Architecture](docs/en/architecture.md) | [Architecture](docs/fr/architecture.md) |
+| The ideas in plain words | [How it works](https://github.com/michaellaunay/komandaro/blob/main/docs/en/how-it-works.md) | [Comment ça marche](https://github.com/michaellaunay/komandaro/blob/main/docs/fr/how-it-works.md) |
+| Step by step, with running code | [Tutorial](https://github.com/michaellaunay/komandaro/blob/main/docs/en/tutorial.md) | [Tutoriel](https://github.com/michaellaunay/komandaro/blob/main/docs/fr/tutorial.md) |
+| Patterns and snippets | [Examples](https://github.com/michaellaunay/komandaro/blob/main/docs/en/examples.md) | [Exemples](https://github.com/michaellaunay/komandaro/blob/main/docs/fr/examples.md) |
+| Every public name | [API reference](https://github.com/michaellaunay/komandaro/blob/main/docs/en/api.md) | [Référence de l'API](https://github.com/michaellaunay/komandaro/blob/main/docs/fr/api.md) |
+| Design, diagrams, roadmap | [Architecture](https://github.com/michaellaunay/komandaro/blob/main/docs/en/architecture.md) | [Architecture](https://github.com/michaellaunay/komandaro/blob/main/docs/fr/architecture.md) |
 
 A complete example application — a notebook whose logic is written once as
 commands and driven by a generated command line — lives in
-[`examples/notebook/`](examples/notebook/):
+[`examples/notebook/`](https://github.com/michaellaunay/komandaro/blob/main/examples/notebook/):
 
 ```bash
 python -m examples.notebook.cli --lang fr     # interactive session
@@ -247,10 +247,30 @@ Phase 1 (0.1) made the core sound: state machine, macros, i18n, tests and
 CI. Phase 2 (0.2, this release) describes commands: parameter schemas,
 memento hook, registry, invoker with history and events. Phase 3 adds the
 generated front ends (CLI, HTML, TUI, JSON/MCP). Details in
-[`docs/en/architecture.md`](docs/en/architecture.md).
+[`docs/en/architecture.md`](https://github.com/michaellaunay/komandaro/blob/main/docs/en/architecture.md).
+
+## Releasing
+
+Releases are published to PyPI by the `Release` workflow through trusted
+publishing (no token to store). Once the one-time setup described in
+[`docs/en/releasing.md`](https://github.com/michaellaunay/komandaro/blob/main/docs/en/releasing.md)
+is done, a release is:
+
+```bash
+# 1. bump `version` in pyproject.toml and __version__ in src/komandaro/__init__.py,
+#    add the CHANGELOG entry, commit
+# 2. tag and push
+git tag v0.2.1 && git push --tags
+```
+
+The workflow refuses a tag that does not match `pyproject.toml`, runs the
+test suite, builds, checks the distributions and uploads them. A dry run
+against TestPyPI is available from *Actions › Release › Run workflow*.
+Tags that predate the workflow (`v0.2.0`) were never published and are
+left as they are.
 
 ## License
 
 Komandaro is free software released under the
-[GNU Affero General Public License v3.0 or later](LICENSE).
+[GNU Affero General Public License v3.0 or later](https://github.com/michaellaunay/komandaro/blob/main/LICENSE).
 Copyright © 2014–2026 Michaël Launay.
