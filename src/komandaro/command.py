@@ -181,9 +181,13 @@ class BaseCommand:
 
     def __repr__(self) -> str:
         state = (
-            "broken" if self.is_broken else
-            "ready" if self.is_ready else
-            "executed" if self.is_executed else "undone"
+            "broken"
+            if self.is_broken
+            else "ready"
+            if self.is_ready
+            else "executed"
+            if self.is_executed
+            else "undone"
         )
         return f"<{type(self).__name__} {self.name!s} [{state}]>"
 

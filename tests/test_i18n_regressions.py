@@ -18,9 +18,7 @@ def test_encoded_c_locale_is_filtered_from_environment(variable):
 
 
 def test_generator_is_reused_for_nested_message_parameters():
-    result = _("invalid_parameter").localize(
-        iter(["fr"]), name="n", error=_("field_too_short")
-    )
+    result = _("invalid_parameter").localize(iter(["fr"]), name="n", error=_("field_too_short"))
     assert result == "Valeur invalide pour le paramètre n : Valeur trop courte"
 
 

@@ -1,8 +1,7 @@
-# Install once: pip install pre-commit && pre-commit install
-# Then every commit runs the same checks as the CI lint job.
+# Install the development extra before using the local hooks.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
+    rev: v0.16.8
     hooks:
       - id: ruff-check
         args: [--fix]
@@ -15,12 +14,9 @@ repos:
         language: system
         pass_filenames: false
         files: ^src/
-      - id: pot-fresh
-        name: komandaro.pot is up to date
-        entry: >-
-          bash -c 'pybabel extract -F babel.cfg -o /tmp/komandaro-fresh.pot src >/dev/null 2>&1
-          && diff <(grep "^msgid" src/komandaro/locale/komandaro.pot) <(grep "^msgid" /tmp/komandaro-fresh.pot)
-          || { echo "run: pybabel extract -F babel.cfg -o src/komandaro/locale/komandaro.pot src"; exit 1; }'
+      - id: catalogues
+        name: gettext identifiers and placeholders
+        entry: python tools/check_catalogues.py
         language: system
         pass_filenames: false
-        files: ^(src/.*\.py|src/komandaro/locale/komandaro\.pot)$
+        files: ^(src/|examples/|tools/check_catalogues\.py|babel\.cfg)

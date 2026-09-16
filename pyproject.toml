@@ -30,7 +30,7 @@ dev = [
   "pytest>=8",
   "pytest-cov>=5",
   "babel>=2.14",
-  "ruff>=0.5",
+  "ruff==0.16.8",
   "mypy>=1.10",
   "pre-commit>=3",
 ]

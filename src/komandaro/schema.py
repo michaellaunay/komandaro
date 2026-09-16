@@ -94,7 +94,9 @@ class ParameterError(ValueError):
 
     def translate(self, language: Language = None, **kw: Any) -> dict[str, str]:
         """Return ``{parameter: localised message}``."""
-        languages = tuple(language) if language is not None and not isinstance(language, str) else language
+        languages = (
+            tuple(language) if language is not None and not isinstance(language, str) else language
+        )
         return {issue.name: issue.translate(languages, **kw) for issue in self.issues}
 
 

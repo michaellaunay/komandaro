@@ -33,7 +33,6 @@ from komandaro.interfaces import IEvent, IInvoker
 from komandaro.permissions import PermissionDeniedError, Policy
 from komandaro.registry import Registry
 
-
 _LOG = logging.getLogger(__name__)
 
 

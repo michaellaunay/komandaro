@@ -67,7 +67,10 @@ def test_observer_failures_do_not_change_results_or_skip_other_observers(calc, c
         assert invoker.redo() == 1
         invoker.clear()
     assert [event.kind for event in seen] == [
-        EventKind.EXECUTED, EventKind.UNDONE, EventKind.REDONE, EventKind.CLEARED,
+        EventKind.EXECUTED,
+        EventKind.UNDONE,
+        EventKind.REDONE,
+        EventKind.CLEARED,
     ]
     assert len(caplog.records) == 4
     assert calc.value == 1 and not invoker.can_undo
