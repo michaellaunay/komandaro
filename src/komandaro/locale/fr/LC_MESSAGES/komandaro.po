@@ -126,3 +126,15 @@ msgstr "Valeur invalide pour le paramètre ${name} : ${error}"
 msgid "field_invalid"
 msgstr "Saisie invalide"
 
+
+msgid "command_busy"
+msgstr "Une transition de la commande ${name} est en cours"
+
+msgid "command_broken"
+msgstr "La commande ${name} nécessite une récupération applicative après un échec de compensation"
+
+msgid "macro_child_state"
+msgstr "La commande enfant ${name} n’est pas dans l’état attendu"
+
+msgid "macro_compensation_failed"
+msgstr "Échec de la compensation de la macro"

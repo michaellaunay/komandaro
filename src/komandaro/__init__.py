@@ -14,6 +14,7 @@ from komandaro.command import (
 from komandaro.i18n import Message, bind_domain, make_gettext, translate
 from komandaro.interfaces import (
     IBaseCommand,
+    IBrokenCommand,
     ICommand,
     IContext,
     IEntry,
@@ -42,6 +43,7 @@ __all__ = [
     "EventKind",
     "HistoryError",
     "IBaseCommand",
+    "IBrokenCommand",
     "ICommand",
     "IContext",
     "IEntry",

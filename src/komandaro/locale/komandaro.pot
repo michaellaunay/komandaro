@@ -1,14 +1,14 @@
-# Translations template for komandaro.
-# Copyright (C) 2026 Michaël Launay
-# This file is distributed under the same license as the komandaro project.
+# Translations template for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
 #
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: komandaro 0.3.0\n"
-"Report-Msgid-Bugs-To: https://github.com/michaellaunay/komandaro/issues\n"
-"POT-Creation-Date: 2026-09-16 14:47+0000\n"
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-16 16:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,43 +17,59 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: src/komandaro/command.py:74
+#: src/komandaro/command.py:76
 msgid "unnamed_command"
 msgstr ""
 
-#: src/komandaro/command.py:95
+#: src/komandaro/command.py:98
 msgid "command_already_executed"
 msgstr ""
 
-#: src/komandaro/command.py:102
+#: src/komandaro/command.py:105
 msgid "command_not_undoable"
 msgstr ""
 
-#: src/komandaro/command.py:108
+#: src/komandaro/command.py:111
 msgid "command_not_redoable"
 msgstr ""
 
-#: src/komandaro/command.py:260
+#: src/komandaro/command.py:142
+msgid "command_busy"
+msgstr ""
+
+#: src/komandaro/command.py:144
+msgid "command_broken"
+msgstr ""
+
+#: src/komandaro/command.py:299
 msgid "macro_label"
 msgstr ""
 
-#: src/komandaro/command.py:261
+#: src/komandaro/command.py:300
 msgid "macro_description"
 msgstr ""
 
-#: src/komandaro/command.py:268 src/komandaro/command.py:272
+#: src/komandaro/command.py:307 src/komandaro/command.py:317
 msgid "macro_frozen"
 msgstr ""
 
-#: src/komandaro/invoker.py:120
+#: src/komandaro/command.py:328
+msgid "macro_child_state"
+msgstr ""
+
+#: src/komandaro/command.py:349
+msgid "macro_compensation_failed"
+msgstr ""
+
+#: src/komandaro/invoker.py:133
 msgid "invoker_without_registry"
 msgstr ""
 
-#: src/komandaro/invoker.py:148
+#: src/komandaro/invoker.py:157
 msgid "nothing_to_undo"
 msgstr ""
 
-#: src/komandaro/invoker.py:162
+#: src/komandaro/invoker.py:172
 msgid "nothing_to_redo"
 msgstr ""
 
