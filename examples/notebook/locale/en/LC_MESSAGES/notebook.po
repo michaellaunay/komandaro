@@ -1,4 +1,4 @@
-# French translations for notebook.
+# English translations for notebook.
 # Copyright (C) 2026 ORGANIZATION
 # This file is distributed under the same license as the notebook project.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
@@ -10,9 +10,9 @@ msgstr ""
 "POT-Creation-Date: 2026-09-16 14:47+0000\n"
 "PO-Revision-Date: 2026-09-16 14:47+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: fr\n"
-"Language-Team: fr <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -20,11 +20,11 @@ msgstr ""
 
 #: examples/notebook/notebook.py:47
 msgid "text_label"
-msgstr "Texte"
+msgstr "Text"
 
 #: examples/notebook/notebook.py:47
 msgid "text_description"
-msgstr "Contenu de la note"
+msgstr "Content of the note"
 
 #: examples/notebook/notebook.py:51 examples/notebook/notebook.py:55
 msgid "position_label"
@@ -32,11 +32,11 @@ msgstr "Position"
 
 #: examples/notebook/notebook.py:51
 msgid "position_description"
-msgstr "Position de la note (à partir de 1)"
+msgstr "1-based position of the note"
 
 #: examples/notebook/notebook.py:56
 msgid "new_text_label"
-msgstr "Nouveau texte"
+msgstr "New text"
 
 #: examples/notebook/notebook.py:60
 msgid "notes_label"
@@ -44,29 +44,29 @@ msgstr "Notes"
 
 #: examples/notebook/notebook.py:77
 msgid "add_note"
-msgstr "Ajouter une note"
+msgstr "Add a note"
 
 #: examples/notebook/notebook.py:90
 msgid "remove_note"
-msgstr "Supprimer une note"
+msgstr "Remove a note"
 
 #: examples/notebook/notebook.py:112
 msgid "rename_note"
-msgstr "Renommer une note"
+msgstr "Rename a note"
 
 #: examples/notebook/notebook.py:120
 msgid "clear_notebook"
-msgstr "Vider le carnet"
+msgstr "Clear the notebook"
 
 #: examples/notebook/notebook.py:121
 msgid "clear_notebook_description"
-msgstr "Supprimer toutes les notes"
+msgstr "Remove every note"
 
 #: examples/notebook/notebook.py:143
 msgid "import_notes"
-msgstr "Importer des notes"
+msgstr "Import notes"
 
 #: examples/notebook/notebook.py:144
 msgid "import_notes_description"
-msgstr "Ajouter plusieurs notes en une seule action"
+msgstr "Add several notes as one action"
 

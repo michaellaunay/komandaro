@@ -5,10 +5,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: komandaro 0.1.0\n"
+"Project-Id-Version: komandaro 0.3.0\n"
 "Report-Msgid-Bugs-To: https://github.com/michaellaunay/komandaro/issues\n"
-"POT-Creation-Date: 2026-09-16 12:26+0000\n"
-"PO-Revision-Date: 2026-09-16 11:48+0000\n"
+"POT-Creation-Date: 2026-09-16 14:47+0000\n"
+"PO-Revision-Date: 2026-09-16 14:47+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: eo\n"
 "Language-Team: eo <LL@li.org>\n"
@@ -18,72 +18,111 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: src/komandaro/command.py:71
-msgid "Unnamed command"
+#: src/komandaro/command.py:74
+msgid "unnamed_command"
 msgstr "Sennoma komando"
 
-#: src/komandaro/command.py:91
-#, python-format
-msgid "Command %(name)s has already been executed"
-msgstr "La komando %(name)s jam estis plenumita"
+#: src/komandaro/command.py:95
+msgid "command_already_executed"
+msgstr "La komando ${name} jam estis plenumita"
 
-#: src/komandaro/command.py:98
-#, python-format
-msgid "Command %(name)s cannot be undone in its current state"
-msgstr "La komando %(name)s ne povas esti malfarita en sia nuna stato"
+#: src/komandaro/command.py:102
+msgid "command_not_undoable"
+msgstr "La komando ${name} ne povas esti malfarita en sia nuna stato"
 
-#: src/komandaro/command.py:104
-#, python-format
-msgid "Command %(name)s cannot be redone in its current state"
-msgstr "La komando %(name)s ne povas esti refarita en sia nuna stato"
+#: src/komandaro/command.py:108
+msgid "command_not_redoable"
+msgstr "La komando ${name} ne povas esti refarita en sia nuna stato"
 
-#: src/komandaro/command.py:251
-msgid "Macro"
+#: src/komandaro/command.py:260
+msgid "macro_label"
 msgstr "Makroo"
 
-#: src/komandaro/command.py:252
-msgid "A sequence of commands executed as one"
+#: src/komandaro/command.py:261
+msgid "macro_description"
 msgstr "Sinsekvo de komandoj plenumataj kiel unu"
 
-#: src/komandaro/command.py:259 src/komandaro/command.py:263
-#, python-format
-msgid "Macro %(name)s cannot be modified once executed"
-msgstr "La makroo %(name)s ne plu povas esti ŝanĝita post plenumo"
+#: src/komandaro/command.py:268 src/komandaro/command.py:272
+msgid "macro_frozen"
+msgstr "La makroo ${name} ne plu povas esti ŝanĝita post plenumo"
 
-#: src/komandaro/invoker.py:101
-msgid "This invoker has no registry"
+#: src/komandaro/invoker.py:120
+msgid "invoker_without_registry"
 msgstr "Ĉi tiu alvokanto ne havas registron"
 
-#: src/komandaro/invoker.py:124
-msgid "Nothing to undo"
+#: src/komandaro/invoker.py:148
+msgid "nothing_to_undo"
 msgstr "Nenio malfarenda"
 
-#: src/komandaro/invoker.py:138
-msgid "Nothing to redo"
+#: src/komandaro/invoker.py:162
+msgid "nothing_to_redo"
 msgstr "Nenio refarenda"
 
-#: src/komandaro/registry.py:91
-#, python-format
-msgid "Command %(id)s is already registered"
-msgstr "La komando %(id)s jam estas registrita"
+#: src/komandaro/permissions.py:37
+msgid "permission_denied"
+msgstr "La permeso ${permission} estas bezonata por plenumi ${id}"
 
-#: src/komandaro/registry.py:131
-#, python-format
-msgid "Unknown command %(id)s"
-msgstr "Nekonata komando: %(id)s"
+#: src/komandaro/registry.py:101
+msgid "command_already_registered"
+msgstr "La komando ${id} jam estas registrita"
 
-#: src/komandaro/schema.py:135
-#, python-format
-msgid "Unknown parameter %(name)s"
-msgstr "Nekonata parametro: %(name)s"
+#: src/komandaro/registry.py:141
+msgid "unknown_command"
+msgstr "Nekonata komando: ${id}"
 
-#: src/komandaro/schema.py:142
-#, python-format
-msgid "Missing required parameter %(name)s"
-msgstr "Mankas deviga parametro: %(name)s"
+#: src/komandaro/schema.py:52
+msgid "field_too_short"
+msgstr "Valoro tro mallonga"
 
-#: src/komandaro/schema.py:156
-#, python-format
-msgid "Invalid value for parameter %(name)s: %(error)s"
-msgstr "Nevalida valoro por la parametro %(name)s: %(error)s"
+#: src/komandaro/schema.py:53
+msgid "field_too_long"
+msgstr "Valoro tro longa"
+
+#: src/komandaro/schema.py:54
+msgid "field_too_small"
+msgstr "Valoro tro malgranda"
+
+#: src/komandaro/schema.py:55
+msgid "field_too_big"
+msgstr "Valoro tro granda"
+
+#: src/komandaro/schema.py:56
+msgid "field_wrong_contained_type"
+msgstr "Malĝusta tipo de ero"
+
+#: src/komandaro/schema.py:57
+msgid "field_wrong_type"
+msgstr "Malĝusta tipo de valoro"
+
+#: src/komandaro/schema.py:58
+msgid "field_required_missing"
+msgstr "Mankas deviga enigo"
+
+#: src/komandaro/schema.py:59
+msgid "field_constraint_not_satisfied"
+msgstr "Limigo ne plenumita"
+
+#: src/komandaro/schema.py:60
+msgid "field_not_unique"
+msgstr "Valoroj devas esti unikaj"
+
+#: src/komandaro/schema.py:61
+msgid "field_invalid_value"
+msgstr "Nevalida valoro"
+
+#: src/komandaro/schema.py:164
+msgid "unknown_parameter"
+msgstr "Nekonata parametro: ${name}"
+
+#: src/komandaro/schema.py:170
+msgid "missing_parameter"
+msgstr "Mankas deviga parametro: ${name}"
+
+#: src/komandaro/schema.py:183
+msgid "invalid_parameter"
+msgstr "Nevalida valoro por la parametro ${name}: ${error}"
+
+#: src/komandaro/schema.py:199
+msgid "field_invalid"
+msgstr "Nevalida enigo"
 

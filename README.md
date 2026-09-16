@@ -1,5 +1,6 @@
 # Komandaro
 
+[![PyPI](https://img.shields.io/pypi/v/komandaro.svg)](https://pypi.org/project/komandaro/)
 [![CI](https://github.com/michaellaunay/komandaro/actions/workflows/ci.yml/badge.svg)](https://github.com/michaellaunay/komandaro/actions/workflows/ci.yml)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](https://github.com/michaellaunay/komandaro/blob/main/LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://github.com/michaellaunay/komandaro/blob/main/pyproject.toml)
@@ -216,10 +217,32 @@ messages. Nothing is translated until a front end asks, with the locale of
 
 ```
 
-The library ships catalogues for its own messages (`en`, `fr`, `eo`); your
-application registers its own domain with `make_gettext("myapp")` and its
-own catalogues. Every error type (`CommandStateError`, `ParameterError`,
-`RegistryError`, `HistoryError`) has a `translate(language)` method.
+Messages are identifiers (`_("add_note")`) whose English wording lives in
+the `en` catalogue like any other language; the library ships catalogues
+for its own messages (`en`, `fr`, `eo`), and your application binds its own
+domain with `make_gettext("myapp", localedir)`. Every error type
+(`CommandStateError`, `ParameterError`, `RegistryError`, `HistoryError`,
+`PermissionDeniedError`) has a `translate(language)` method.
+
+### Permissions
+
+A command may require a permission; an invoker given a policy and a
+subject refuses what the subject may not run. What a permission *is* —
+a name, an `IntFlag`, a class in a hierarchy — is decided by the policy,
+which you can replace:
+
+```pycon
+>>> from komandaro import PermissionDeniedError, SubjectPermissionsPolicy
+>>> Add.permission = "write"
+>>> guarded = Invoker(Calculator(), registry, policy=SubjectPermissionsPolicy(), subject={"read"})
+>>> try:
+...     guarded.run("add", amount=1)
+... except PermissionDeniedError as error:
+...     print(error)
+Permission write is required to run add
+>>> Add.permission = None
+
+```
 
 ## Development
 
@@ -227,6 +250,7 @@ own catalogues. Every error type (`CommandStateError`, `ParameterError`,
 git clone git@github.com:michaellaunay/komandaro.git && cd komandaro
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
+pre-commit install                                      # ruff, mypy and .pot freshness at each commit
 python -m pytest                                        # tests + doctests of README.md and docs/
 ruff check . && ruff format --check . && mypy
 pybabel compile -d src/komandaro/locale -D komandaro   # build the .mo files for a manual run
@@ -244,8 +268,9 @@ pybabel compile -d src/komandaro/locale -D komandaro
 ## Roadmap
 
 Phase 1 (0.1) made the core sound: state machine, macros, i18n, tests and
-CI. Phase 2 (0.2, this release) describes commands: parameter schemas,
-memento hook, registry, invoker with history and events. Phase 3 adds the
+CI. Phase 2 (0.2) describes commands: parameter schemas, memento hook,
+registry, invoker with history and events; 0.3 consolidates it (verified
+interfaces, message identifiers, detachable permissions). Phase 3 adds the
 generated front ends (CLI, HTML, TUI, JSON/MCP). Details in
 [`docs/en/architecture.md`](https://github.com/michaellaunay/komandaro/blob/main/docs/en/architecture.md).
 

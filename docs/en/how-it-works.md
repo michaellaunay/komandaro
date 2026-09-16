@@ -153,6 +153,24 @@ Events are how the core talks to the outside without knowing it: a UI
 enables its *undo* button, an audit log writes a line, a persistence layer
 saves the history.
 
+### Permissions, without a permission model
+
+A command may declare the permission it requires (`permission = ...`),
+and an invoker may be given a **policy** and a **subject** (the user, the
+session, the request — anything). Before running a command, the invoker
+asks the policy `permits(subject, required, command)`; a refusal raises
+`PermissionDeniedError` and emits a `denied` event. `registry.allowed(policy,
+subject)` lists what the subject may run, which is how a front end builds
+its menu.
+
+What a permission *is* stays outside the core: the default policy
+understands flat names, `IntFlag` bit sets (the model of AlirPunkto) and
+hierarchies of permission classes, where holding a subclass grants its
+bases — diamond inheritance included. Both ingredients of the policy,
+"what does the subject hold" and "what implies what", are functions you can
+replace, and the whole policy is an `IPermissionPolicy` you can swap.
+Authentication — who the subject is — is the front end's job.
+
 ### Translation without a global language
 
 Every user-facing string is wrapped in `_()`, which returns a **lazy
@@ -164,10 +182,21 @@ Why lazy? Because one process may serve many users. A web server handling
 a French request and an Esperanto request at the same time cannot have "a
 current language". The **front end** knows its user's locale and
 translates at render time. Names, descriptions, field titles and every
-error message (`error.translate("fr")`) work this way.
+error message (`error.translate("fr")`) work this way; `str(error)` uses
+the language of the process (`LANGUAGE`, `LANG`…) so that logs read well.
+
+Messages are **identifiers**, not English sentences — `_("nothing_to_undo")`,
+`_("add_note")` — with the English text in the `en` catalogue like any
+other language, and `${name}` placeholders. When the requested language
+has no entry, English is used; failing that, the identifier itself. This
+is the convention of the AlirPunkto application, and the reason a wording
+can be fixed without a code change.
 
 The library's messages are in the `komandaro` domain; your application
-creates its own with `make_gettext("myapp")` and ships its own catalogues.
+creates its own with `make_gettext("myapp", localedir)` and ships its own
+catalogues. Validation errors raised by `zope.schema` fields are mapped to
+identifiers too (`field_too_short`, `field_too_small`…), so a form can show
+them in the user's language.
 
 ## Putting it together
 
@@ -189,7 +218,8 @@ except ParameterError as e:
 
 * **Front ends.** Phase 3 provides reusable CLI, HTML, TUI and JSON/MCP
   adapters. Today you write the loop above yourself (it is short).
-* **Permissions.** The registry has groups and tags, not access control.
+* **Authentication.** Komandaro checks permissions but does not know who
+  the user is: the front end provides the subject.
 * **Persistence.** The history lives in memory; events give you what you
   need to store it.
 * **Concurrency.** An invoker is not thread-safe; use one per session.
@@ -218,6 +248,12 @@ safe as possible; use a memento when the result is not enough.
 By default `_redo()` calls `_do()` again with the same parameters and the
 memento taken the first time. Override `_redo()` if replaying should
 differ from the first run.
+
+**How do I plug in my own permission model?**
+Declare permissions on your commands (any object), then give the invoker
+a `SubjectPermissionsPolicy(held=..., implies=...)` with your two
+functions — or any object implementing `IPermissionPolicy`. Nothing else
+in Komandaro depends on what a permission is.
 
 **How do I reuse a command in another application?**
 Register it from an entry point: the other application's registry loads

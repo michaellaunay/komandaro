@@ -3,6 +3,52 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org).
 
+## [0.3.0] — 2026-09-16
+
+Consolidation: closes what the initial audit left open before any front
+end is built. Minor version because the message catalogue contract changes.
+
+### Changed
+- **Message identifiers.** Library messages are `snake_case` identifiers
+  (`command_already_executed`, `nothing_to_undo`…) with the English text in
+  the `en` catalogue; placeholders are `${name}` (`string.Template`) instead
+  of `%(name)s`. `translate()` tries the requested language, then English,
+  then returns the identifier. `str(error)` renders in the language of the
+  process. Same convention as AlirPunkto. Applications keeping plain-text
+  message ids still work.
+- **Interfaces aligned with the implementation**: `IBaseCommand` declares
+  `id`, `schema`, `permission`, `params`, `memento`; `ISimpleCommand`
+  declares `do_it`/`undo_it`/`snapshot_it`; new `IEntry`, `IRegistry`,
+  `IInvoker`, `IEvent`, `IPermissionPolicy`; `Registry`, `Entry`, `Invoker`,
+  `Event` and the policies carry `@implementer`. `tests/test_interfaces.py`
+  verifies every implementation (`verifyClass`/`verifyObject`).
+- Decision recorded: `undo(context, state, **params)` is kept (`state` is
+  the result, or the memento when a `snapshot` exists); no `Outcome` object.
+- `IContext` is kept as an optional, never-checked marker.
+- The example application uses identifiers and ships `en` and `fr`
+  catalogues; `make_gettext("notebook", localedir)` binds its domain.
+- GitHub Actions: `checkout@v7`, `setup-python@v7`, `upload-artifact@v7`,
+  `download-artifact@v8` (removes the Node 20 deprecation warning).
+
+### Added
+- `komandaro.permissions`: a detachable permission model. `BaseCommand.permission`
+  (any object, `None` = public); `Invoker(policy=..., subject=...)` checks
+  `policy.permits(subject, required, command)` before running, raises
+  `PermissionDeniedError` and emits a `denied` event; `Registry.allowed(policy,
+  subject)` filters entries for menus. `SubjectPermissionsPolicy` handles flat
+  names, `IntFlag` bit sets and permission-class hierarchies (diamond
+  inheritance) through two replaceable functions; `AllowAll` permits all.
+- `zope.schema` validation errors mapped to identifiers (`field_too_short`,
+  `field_too_small`, `field_wrong_type`…) and translated; nested `Message`
+  parameters are translated by `Message.localize`.
+- `bind_domain(domain, localedir)`, `make_gettext(domain, localedir)`,
+  `environment_languages()`, `FALLBACK_LANGUAGE`, `LOCALEDIRS`.
+- `.pre-commit-config.yaml` (ruff, ruff-format, mypy, `.pot` freshness);
+  `pre-commit` in the `dev` extra.
+- 32 new tests (interfaces, permissions, i18n); documentation updated in both
+  languages (tutorial: permissions and identifiers; how-it-works; API;
+  architecture with the decisions recorded).
+
 ## [0.2.1] — 2026-09-16
 
 Documentation release; first version published on PyPI.

@@ -58,7 +58,8 @@ src/komandaro/
 ├── schema.py        parameter schemas: validate, describe, ParameterError
 ├── registry.py      Registry, Entry, RegistryError
 ├── invoker.py       Invoker, Event, EventKind, HistoryError
-├── i18n.py          Message, make_gettext, translate
+├── permissions.py   SubjectPermissionsPolicy, AllowAll, PermissionDeniedError
+├── i18n.py          Message, make_gettext, bind_domain, translate
 └── locale/          komandaro.pot + <lang>/LC_MESSAGES/komandaro.po
 tests/               `python -m pytest`; every ```pycon block in README.md and docs/ runs too
 examples/notebook/   the tutorial application: logic (notebook.py), generated CLI (cli.py), fr catalogue
@@ -95,10 +96,15 @@ classDiagram
     }
     class IBaseCommand {
         <<interface>>
+        id : str
         name : Message
         description : Message
+        schema : Interface
+        permission
         context
+        params : dict
         result
+        memento
     }
     class ICommand {
         <<interface — state>>
@@ -114,6 +120,9 @@ classDiagram
     }
     class ISimpleCommand {
         <<interface — kind>>
+        do_it(context, **params)$
+        undo_it(context, state, **params)$
+        snapshot_it(context, **params)$
     }
     class IMacro {
         <<interface — kind>>
@@ -207,6 +216,10 @@ instances are per execution.
 `undo(context, state, **params)` receives, as *state*, the value returned
 by `do` — or, when the factory was given a `snapshot(context, **params)`
 function, the **memento** that function captured just before execution.
+This signature is a settled decision (0.3): the beginner's
+`undo(context, result)` stays intact and the memento is opt-in; an explicit
+`Outcome(result, memento)` object was considered and rejected as a tax on
+every simple command.
 `BaseCommand._snapshot()` is the general hook; its value is kept in
 `command.memento` and taken once, on the first execution, so that `redo()`
 restores the same starting point.
@@ -303,6 +316,8 @@ classDiagram
     class Invoker {
         context
         registry : Registry
+        policy : IPermissionPolicy
+        subject
         limit : int
         +run(command_or_id, **params)
         +undo()
@@ -341,6 +356,45 @@ commands between the two stacks. Every transition — and every failure —
 emits an `Event` to the subscribed handlers: a UI refreshes, an audit log
 records, a persistence layer stores. A failed execution is not recorded; a
 failed undo leaves the command in the history so nothing is silently lost.
+
+### Permissions: a detachable model
+
+A command declares the permission it requires (`permission`, any object,
+`None` for public). The invoker, when given a **policy** and a
+**subject**, asks `policy.permits(subject, required, command)` before
+running and raises `PermissionDeniedError` (event `denied`) on refusal;
+`registry.allowed(policy, subject)` gives a front end the entries it may
+show. Undo and redo are not re-checked: one may always revert one's own
+actions.
+
+```mermaid
+classDiagram
+    class IPermissionPolicy {
+        <<interface>>
+        implies(held, required) bool
+        permits(subject, required, command) bool
+    }
+    class SubjectPermissionsPolicy {
+        held(subject) : callable
+        implies(held, required) : callable
+    }
+    class AllowAll
+    IPermissionPolicy <|.. SubjectPermissionsPolicy
+    IPermissionPolicy <|.. AllowAll
+    Invoker --> IPermissionPolicy : policy
+    Invoker --> "subject" Any
+    BaseCommand --> "permission" Any
+```
+
+The core never interprets a permission. `SubjectPermissionsPolicy`, the
+default, is built from two replaceable functions: `held(subject)` (what
+the subject holds — its `permissions` attribute, or the subject itself)
+and `implies(held, required)`, which understands three models at once:
+flat names (equality), `IntFlag` bit sets (`held & required == required`,
+the current AlirPunkto model) and classes (`issubclass`, so a permission
+graph with multiple inheritance works out of the box, which is where
+AlirPunkto is heading). Swapping the model is replacing these functions
+or the whole `IPermissionPolicy`; commands and front ends do not change.
 
 ```mermaid
 sequenceDiagram
@@ -398,12 +452,23 @@ sequenceDiagram
     Cli->>Cli: translate(name, "eo") → "Aldoni"
 ```
 
+**Identifiers.** Message ids are `snake_case` identifiers
+(`nothing_to_undo`, `command_already_executed`), never English sentences:
+English is a catalogue like the others (`en`), placeholders are written
+`${name}` (`string.Template`), and `translate()` tries the requested
+language, then English, then returns the identifier. This is the
+convention of AlirPunkto; it lets wording be corrected without a code
+change and keeps identifiers greppable in logs. `str(error)` renders in
+the process language for the same reason.
+
 **Domains.** The library's own messages are in domain `komandaro`
 (catalogues `en`, `fr`, `eo`, compiled into `komandaro/locale`). An
-application creates its own marker with `_ = make_gettext("myapp")` and
-ships its own catalogues; `translate()` picks the right catalogue from the
-message's domain. Pass `localedir` when catalogues live outside the
-package.
+application creates its own marker with
+`_ = make_gettext("myapp", localedir)`, which binds the domain to its
+catalogue directory (`bind_domain`); `translate()` then picks the right
+catalogue from the message's domain, whatever the caller. Validation
+errors of `zope.schema` fields are mapped to identifiers
+(`field_too_short`…) and translated like the rest.
 
 **Workflow.** `babel.cfg` configures extraction. `.po` files are versioned,
 `.mo` files are built (`pybabel compile`) and git-ignored. The CI checks
@@ -426,6 +491,7 @@ gantt
     Memento hook (snapshot before execute)     :done, p2b, after p1, 1w
     Invoker: history, undo/redo stack, events  :done, p2c, after p2a, 1w
     Command registry (entry points / groups)   :done, p2d, after p2c, 1w
+    Consolidation: interfaces, ids, permissions :done, p2e, after p2d, 1w
     section Phase 3 — front ends
     CLI generated from schema (argparse/Typer) :p3a, after p2d, 8w
     HTML forms + Pyramid views                 :p3b, after p2d, 12w
@@ -435,11 +501,16 @@ gantt
     Async commands, persistence, audit log     :p4, after p3d, 12w
 ```
 
-### Phase 2 — describing commands (done in 0.2)
+### Phase 2 — describing commands (0.2), consolidated (0.3)
 
-Parameter schemas (§5), memento hook (§4), registry and invoker (§6).
-Still open from the original plan: **permissions** attached to registry
-entries, which will come with the first front end that needs them (HTML).
+Parameter schemas (§5), memento hook (§4), registry and invoker (§6). The
+0.3 consolidation closed what the original audit had left open: the
+interfaces now match the implementation and are verified by tests, the
+undo signature is settled, messages are identifiers with translated field
+errors, and permissions exist as a detachable model (§6). The optional
+`zope.component` integration (commands as named adapters of `IContext`)
+stays a candidate for a later phase; `IContext` is kept as an optional
+marker for it.
 
 ### Phase 3 — front ends
 
@@ -461,6 +532,10 @@ Asynchronous commands (`async def _do`), persistence of the history
 | `zope.schema` for parameters | Typed fields with i18n titles, validation and vocabularies already exist and are what Pyramid/Plone form libraries consume; no need to reinvent a form model. |
 | Parameters ≠ context | The context is the application state; the parameters are one execution's input. Separating them is what lets a front end ask the user for exactly what the command needs. |
 | Invoker emits events instead of calling the UI | The core must not know its front ends; observers keep the dependency pointing inwards. |
+| `undo(context, state, **params)` kept over an `Outcome` object | Simple commands keep the simplest signature; the memento is opt-in through `snapshot`. Decided in 0.3. |
+| Message identifiers, English in the `en` catalogue | Same convention as AlirPunkto: wording lives in catalogues, code carries stable ids; `${name}` placeholders match Pyramid's `TranslationString`. |
+| Permissions opaque to the core, policy replaceable | Today's `IntFlag` model and tomorrow's permission-class graph must both fit without touching commands or front ends; the policy is the only place that interprets a permission. |
+| `IContext` kept as an optional marker | Costs nothing, and keeps the 2014 idea of commands as adapters of the context available for an optional `zope.component` integration. |
 | States as marker interfaces, not an enum | Front ends can query `IExecutedCommand.providedBy(cmd)` and register adapters/views per state. An `is_*` property triad is provided for convenience. |
 | One instance per execution | Each instance is an immutable record of one action, which is what an undo history needs. |
 | Lazy messages, no global language | One process may serve many users; the locale belongs to the front end, not to the core. |

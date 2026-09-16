@@ -343,6 +343,45 @@ journal d'audit enregistre les actions :
 
 ```
 
+### Qui peut faire quoi
+
+Une commande peut exiger une permission, et l'invocateur peut recevoir
+une politique et un sujet. Ce qu'*est* une permission reste votre choix :
+des noms, des bits `IntFlag`, ou des classes — ici une petite hiérarchie,
+où détenir `Admin` accorde `Write` parce qu'elle en dérive.
+
+```pycon
+>>> from komandaro import PermissionDeniedError, SubjectPermissionsPolicy
+
+>>> class Write: ...
+>>> class Admin(Write): ...
+
+>>> Clear.permission = Admin
+>>> Add.permission = Write
+
+>>> nb = Notebook()
+>>> invoker = Invoker(nb, registry, policy=SubjectPermissionsPolicy(), subject=[Write])
+>>> invoker.run("add", text="Buy milk")
+1
+>>> try:
+...     invoker.run("clear")
+... except PermissionDeniedError as error:
+...     print(error)
+Permission Admin is required to run clear
+>>> [entry.id for entry in registry.allowed(invoker.policy, invoker.subject)]
+['add', 'mv', 'import']
+>>> invoker.subject = [Admin]
+>>> invoker.run("clear")
+1
+>>> Clear.permission = Add.permission = None  # retour à des commandes publiques
+
+```
+
+Le sujet peut changer à tout moment (par requête, par session), et les
+deux ingrédients de la politique — ce que détient un sujet, ce qui
+implique quoi — sont des fonctions remplaçables : le modèle pourra être
+échangé plus tard sans toucher aux commandes.
+
 ## 8. Traduire noms, libellés et erreurs
 
 Chaque chaîne enveloppée dans `_()` est un message gettext paresseux. Rien
@@ -365,13 +404,29 @@ La komando Add a note ne povas esti malfarita en sia nuna stato
 
 ```
 
-Les messages de votre application vivent dans **leur propre domaine**.
-Créez le marqueur une fois :
+Dans ce tutoriel, les messages étaient des phrases anglaises, ce qui
+fonctionne. La convention recommandée — celle de l'application d'exemple —
+est un **identifiant de message** en `snake_case`, avec la formulation
+anglaise dans le catalogue `en` comme pour toute autre langue, et des
+espaces réservés `${name}` :
 
 ```python
+Add = SimpleCommandFactory(add, undo_add, _("add_note"), schema=IText, id="add")
+```
+
+Quand une langue n'a pas d'entrée, l'anglais est utilisé ; à défaut,
+l'identifiant. La formulation se corrige alors dans les catalogues, jamais
+dans le code.
+
+Les messages de votre application vivent dans **leur propre domaine**,
+lié une fois pour toutes au répertoire de ses catalogues :
+
+```python
+from pathlib import Path
+
 from komandaro import make_gettext
 
-_ = make_gettext("notebook")
+_ = make_gettext("notebook", Path(__file__).parent / "locale")
 ```
 
 puis extrayez, traduisez et compilez avec Babel :
@@ -383,17 +438,17 @@ pybabel init -i locale/notebook.pot -d locale -D notebook -l fr
 pybabel compile -d locale -D notebook
 ```
 
-et traduisez au moment du rendu avec `translate(message, "fr", localedir)`.
+et traduisez au moment du rendu avec `translate(message, "fr")`.
 L'application d'exemple fait exactement cela : voir
 [`examples/notebook/locale/`](../../examples/notebook/locale/).
 
 ```pycon
->>> from pathlib import Path
 >>> from examples.notebook.notebook import Add as NotebookAdd
->>> localedir = Path("examples/notebook/locale")
->>> translate(NotebookAdd.name, "fr", localedir)
+>>> NotebookAdd.name
+'add_note'
+>>> translate(NotebookAdd.name, "fr")
 'Ajouter une note'
->>> translate(NotebookAdd.name, "de", localedir)  # pas de catalogue : l'identifiant du message
+>>> translate(NotebookAdd.name, "de")  # pas de catalogue allemand : l'anglais
 'Add a note'
 
 ```

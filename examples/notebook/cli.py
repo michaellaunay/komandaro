@@ -23,7 +23,6 @@ import argparse
 import shlex
 import sys
 from collections.abc import Callable, Sequence
-from pathlib import Path
 from typing import Any
 
 from komandaro import (
@@ -39,9 +38,6 @@ from komandaro import (
 
 from .notebook import Notebook, make_registry
 
-HERE = Path(__file__).parent
-LOCALEDIR = HERE / "locale"  # application catalogues (domain "notebook")
-
 # How a zope.schema field type becomes an argparse option.
 CONVERTERS: dict[str, Callable[[str], Any]] = {
     "Int": int,
@@ -53,10 +49,8 @@ CONVERTERS: dict[str, Callable[[str], Any]] = {
 
 
 def tr(message: str, lang: str | None) -> str:
-    """Translate a message from any domain (library or application)."""
-    return translate(
-        message, lang, LOCALEDIR if getattr(message, "domain", "") == "notebook" else None
-    )
+    """Translate a message from any domain: the notebook bound its catalogues."""
+    return translate(message, lang)
 
 
 def add_option(parser: argparse.ArgumentParser, info: ParameterInfo, lang: str | None) -> None:

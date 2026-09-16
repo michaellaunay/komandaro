@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: notebook VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-16 12:44+0000\n"
+"POT-Creation-Date: 2026-09-16 14:47+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,55 +17,55 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: examples/notebook/notebook.py:44
-msgid "Text"
+#: examples/notebook/notebook.py:47
+msgid "text_label"
 msgstr ""
 
-#: examples/notebook/notebook.py:44
-msgid "Content of the note"
+#: examples/notebook/notebook.py:47
+msgid "text_description"
 msgstr ""
 
-#: examples/notebook/notebook.py:48 examples/notebook/notebook.py:52
-msgid "Position"
+#: examples/notebook/notebook.py:51 examples/notebook/notebook.py:55
+msgid "position_label"
 msgstr ""
 
-#: examples/notebook/notebook.py:48
-msgid "1-based position of the note"
+#: examples/notebook/notebook.py:51
+msgid "position_description"
 msgstr ""
 
-#: examples/notebook/notebook.py:53
-msgid "New text"
+#: examples/notebook/notebook.py:56
+msgid "new_text_label"
 msgstr ""
 
-#: examples/notebook/notebook.py:57
-msgid "Notes"
+#: examples/notebook/notebook.py:60
+msgid "notes_label"
 msgstr ""
 
-#: examples/notebook/notebook.py:74
-msgid "Add a note"
+#: examples/notebook/notebook.py:77
+msgid "add_note"
 msgstr ""
 
-#: examples/notebook/notebook.py:87
-msgid "Remove a note"
+#: examples/notebook/notebook.py:90
+msgid "remove_note"
 msgstr ""
 
-#: examples/notebook/notebook.py:109
-msgid "Rename a note"
+#: examples/notebook/notebook.py:112
+msgid "rename_note"
 msgstr ""
 
-#: examples/notebook/notebook.py:117
-msgid "Clear the notebook"
+#: examples/notebook/notebook.py:120
+msgid "clear_notebook"
 msgstr ""
 
-#: examples/notebook/notebook.py:118
-msgid "Remove every note"
+#: examples/notebook/notebook.py:121
+msgid "clear_notebook_description"
 msgstr ""
 
-#: examples/notebook/notebook.py:140
-msgid "Import notes"
+#: examples/notebook/notebook.py:143
+msgid "import_notes"
 msgstr ""
 
-#: examples/notebook/notebook.py:141
-msgid "Add several notes as one action"
+#: examples/notebook/notebook.py:144
+msgid "import_notes_description"
 msgstr ""
 

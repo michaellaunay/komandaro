@@ -24,8 +24,12 @@ from dataclasses import dataclass
 from importlib.metadata import entry_points
 from typing import Any
 
+from zope.interface import implementer
+
 from komandaro.command import BaseCommand
-from komandaro.i18n import Message, _
+from komandaro.i18n import Language, Message, _
+from komandaro.interfaces import IEntry, IRegistry
+from komandaro.permissions import Policy
 from komandaro.schema import ParameterInfo, describe
 
 
@@ -38,12 +42,13 @@ class RegistryError(LookupError):
         self.params = params
 
     def __str__(self) -> str:
-        return str(self.message) % self.params if self.params else str(self.message)
+        return self.message.localize(None, **self.params)
 
-    def translate(self, language: str | list[str] | None = None, **kw: Any) -> str:
+    def translate(self, language: Language = None, **kw: Any) -> str:
         return self.message.localize(language, **kw, **self.params)
 
 
+@implementer(IEntry)
 @dataclass(frozen=True, slots=True)
 class Entry:
     """A registered command class with its registry metadata."""
@@ -62,10 +67,15 @@ class Entry:
         return self.command.description
 
     @property
+    def permission(self) -> Any:
+        return self.command.permission
+
+    @property
     def parameters(self) -> list[ParameterInfo]:
         return describe(self.command.schema)
 
 
+@implementer(IRegistry)
 class Registry:
     """Ordered mapping ``id → Entry`` of command classes."""
 
@@ -88,7 +98,7 @@ class Registry:
             raise TypeError(f"expected a BaseCommand subclass, got {command!r}")
         ident = id or command.id
         if ident in self._entries and not replace:
-            raise RegistryError(_("Command %(id)s is already registered"), id=ident)
+            raise RegistryError(_("command_already_registered"), id=ident)
         entry = Entry(ident, command, group, frozenset(tags))
         self._entries[ident] = entry
         return entry
@@ -128,7 +138,7 @@ class Registry:
         try:
             return self._entries[id]
         except KeyError:
-            raise RegistryError(_("Unknown command %(id)s"), id=id) from None
+            raise RegistryError(_("unknown_command"), id=id) from None
 
     def get(self, id: str) -> Entry:
         return self._require(id)
@@ -163,6 +173,12 @@ class Registry:
             for e in self
             if (group is None or e.group == group) and (tag is None or tag in e.tags)
         ]
+
+    def allowed(self, policy: Policy | None, subject: Any) -> list[Entry]:
+        """Entries whose command *subject* may run under *policy* (all when None)."""
+        if policy is None:
+            return list(self)
+        return [e for e in self if policy.permits(subject, e.permission, e.command)]
 
     def create(self, id: str, context: Any, **params: Any) -> BaseCommand:
         """Instantiate command *id* bound to *context* with *params*."""

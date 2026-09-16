@@ -334,6 +334,45 @@ UI refreshes its undo button, or an audit log records actions:
 
 ```
 
+### Who may do what
+
+A command may require a permission, and the invoker may be given a
+policy and a subject. What a permission *is* stays yours: names, `IntFlag`
+bits, or classes — here a small hierarchy, where holding `Admin` grants
+`Write` because it derives from it.
+
+```pycon
+>>> from komandaro import PermissionDeniedError, SubjectPermissionsPolicy
+
+>>> class Write: ...
+>>> class Admin(Write): ...
+
+>>> Clear.permission = Admin
+>>> Add.permission = Write
+
+>>> nb = Notebook()
+>>> invoker = Invoker(nb, registry, policy=SubjectPermissionsPolicy(), subject=[Write])
+>>> invoker.run("add", text="Buy milk")
+1
+>>> try:
+...     invoker.run("clear")
+... except PermissionDeniedError as error:
+...     print(error)
+Permission Admin is required to run clear
+>>> [entry.id for entry in registry.allowed(invoker.policy, invoker.subject)]
+['add', 'mv', 'import']
+>>> invoker.subject = [Admin]
+>>> invoker.run("clear")
+1
+>>> Clear.permission = Add.permission = None  # back to public commands
+
+```
+
+The subject can change at any time (per request, per session), and the
+policy's two ingredients — what a subject holds, what implies what — are
+replaceable functions, so the model can be swapped later without touching
+the commands.
+
 ## 8. Translating names, labels and errors
 
 Every string you wrapped in `_()` is a lazy gettext message. Nothing is
@@ -354,13 +393,27 @@ La komando Add a note ne povas esti malfarita en sia nuna stato
 
 ```
 
-Your application's own messages live in **its own domain**. Create the
-marker once:
+In this tutorial the messages were English sentences, which works. The
+recommended convention — the one of the example application — is a
+**message identifier** in `snake_case`, with the English wording in the
+`en` catalogue like any other language and `${name}` placeholders:
 
 ```python
+Add = SimpleCommandFactory(add, undo_add, _("add_note"), schema=IText, id="add")
+```
+
+When a language has no entry, English is used; failing that, the
+identifier. Wording is then fixed in catalogues, never in code.
+
+Your application's own messages live in **its own domain**, bound once to
+the directory of its catalogues:
+
+```python
+from pathlib import Path
+
 from komandaro import make_gettext
 
-_ = make_gettext("notebook")
+_ = make_gettext("notebook", Path(__file__).parent / "locale")
 ```
 
 then extract, translate and compile with Babel:
@@ -372,17 +425,17 @@ pybabel init -i locale/notebook.pot -d locale -D notebook -l fr
 pybabel compile -d locale -D notebook
 ```
 
-and translate at render time with `translate(message, "fr", localedir)`.
-The example application does exactly this: see
+and translate at render time with `translate(message, "fr")`. The example
+application does exactly this: see
 [`examples/notebook/locale/`](../../examples/notebook/locale/).
 
 ```pycon
->>> from pathlib import Path
 >>> from examples.notebook.notebook import Add as NotebookAdd
->>> localedir = Path("examples/notebook/locale")
->>> translate(NotebookAdd.name, "fr", localedir)
+>>> NotebookAdd.name
+'add_note'
+>>> translate(NotebookAdd.name, "fr")
 'Ajouter une note'
->>> translate(NotebookAdd.name, "de", localedir)  # no catalogue: the message id
+>>> translate(NotebookAdd.name, "de")  # no German catalogue: English
 'Add a note'
 
 ```

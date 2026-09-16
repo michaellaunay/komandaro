@@ -166,6 +166,26 @@ Les événements sont la façon dont le cœur parle à l'extérieur sans le
 connaître : une interface active son bouton *annuler*, un journal d'audit
 écrit une ligne, une couche de persistance sauvegarde l'historique.
 
+### Les permissions, sans modèle de permission
+
+Une commande peut déclarer la permission qu'elle exige
+(`permission = ...`), et un invocateur peut recevoir une **politique** et
+un **sujet** (l'utilisateur, la session, la requête — n'importe quoi).
+Avant d'exécuter une commande, l'invocateur demande à la politique
+`permits(subject, required, command)` ; un refus lève
+`PermissionDeniedError` et émet un événement `denied`.
+`registry.allowed(policy, subject)` liste ce que le sujet peut exécuter :
+c'est ainsi qu'un frontal construit son menu.
+
+Ce qu'*est* une permission reste hors du cœur : la politique par défaut
+comprend les noms plats, les jeux de bits `IntFlag` (le modèle
+d'AlirPunkto) et les hiérarchies de classes de permission, où détenir une
+sous-classe accorde ses bases — héritage en losange compris. Les deux
+ingrédients de la politique, « que détient le sujet » et « qu'est-ce qui
+implique quoi », sont des fonctions remplaçables, et la politique entière
+est une `IPermissionPolicy` interchangeable. L'authentification — qui est
+le sujet — relève du frontal.
+
 ### La traduction sans langue globale
 
 Chaque chaîne destinée à l'utilisateur est enveloppée dans `_()`, qui
@@ -179,11 +199,24 @@ utilisateurs. Un serveur web traitant en même temps une requête en
 français et une en espéranto ne peut pas avoir « une langue courante ».
 Le **frontal** connaît la locale de son utilisateur et traduit au moment
 du rendu. Noms, descriptions, titres de champs et chaque message d'erreur
-(`error.translate("fr")`) fonctionnent ainsi.
+(`error.translate("fr")`) fonctionnent ainsi ; `str(error)` utilise la
+langue du processus (`LANGUAGE`, `LANG`…) pour que les journaux restent
+lisibles.
+
+Les messages sont des **identifiants**, pas des phrases anglaises —
+`_("nothing_to_undo")`, `_("add_note")` — avec le texte anglais dans le
+catalogue `en` comme pour toute autre langue, et des espaces réservés
+`${name}`. Quand la langue demandée n'a pas d'entrée, l'anglais est
+utilisé ; à défaut, l'identifiant lui-même. C'est la convention de
+l'application AlirPunkto, et la raison pour laquelle une formulation se
+corrige sans toucher au code.
 
 Les messages de la bibliothèque sont dans le domaine `komandaro` ; votre
-application crée le sien avec `make_gettext("monappli")` et livre ses
-propres catalogues.
+application crée le sien avec `make_gettext("monappli", localedir)` et
+livre ses propres catalogues. Les erreurs de validation levées par les
+champs `zope.schema` sont elles aussi associées à des identifiants
+(`field_too_short`, `field_too_small`…), pour qu'un formulaire les affiche
+dans la langue de l'utilisateur.
 
 ## Assembler le tout
 
@@ -206,8 +239,8 @@ except ParameterError as e:
 * **Les frontaux.** La phase 3 fournira des adaptateurs CLI, HTML, TUI et
   JSON/MCP réutilisables. Aujourd'hui, vous écrivez vous-même la boucle
   ci-dessus (elle est courte).
-* **Les permissions.** Le registre a des groupes et des étiquettes, pas de
-  contrôle d'accès.
+* **L'authentification.** Komandaro vérifie les permissions mais ne sait
+  pas qui est l'utilisateur : c'est le frontal qui fournit le sujet.
 * **La persistance.** L'historique vit en mémoire ; les événements vous
   donnent ce qu'il faut pour le stocker.
 * **La concurrence.** Un invocateur n'est pas thread-safe ; utilisez-en un
@@ -240,6 +273,12 @@ suffit pas.
 Par défaut `_redo()` rappelle `_do()` avec les mêmes paramètres et le
 mémento pris la première fois. Redéfinissez `_redo()` si rejouer doit
 différer de la première exécution.
+
+**Comment brancher mon propre modèle de permissions ?**
+Déclarez les permissions sur vos commandes (n'importe quel objet), puis
+donnez à l'invocateur une `SubjectPermissionsPolicy(held=..., implies=...)`
+avec vos deux fonctions — ou tout objet implémentant `IPermissionPolicy`.
+Rien d'autre dans Komandaro ne dépend de ce qu'est une permission.
 
 **Comment réutiliser une commande dans une autre application ?**
 Enregistrez-la via un entry point : le registre de l'autre application la

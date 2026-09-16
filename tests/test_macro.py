@@ -76,7 +76,7 @@ def test_macro_custom_name_and_description(calc):
     macro = Macro(calc, name="Batch", description="Do everything")
     assert macro.name == "Batch"
     assert macro.description == "Do everything"
-    assert Macro.name == "Macro"  # class default untouched
+    assert Macro.name == "macro_label"  # class default untouched (an identifier)
 
 
 def test_nested_macros(calc):

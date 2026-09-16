@@ -23,8 +23,12 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
+from zope.interface import implementer
+
 from komandaro.command import BaseCommand
-from komandaro.i18n import Message, _
+from komandaro.i18n import Language, Message, _
+from komandaro.interfaces import IEvent, IInvoker
+from komandaro.permissions import PermissionDeniedError, Policy
 from komandaro.registry import Registry
 
 
@@ -35,7 +39,10 @@ class HistoryError(RuntimeError):
         super().__init__(message)
         self.message = message
 
-    def translate(self, language: str | list[str] | None = None, **kw: Any) -> str:
+    def __str__(self) -> str:
+        return self.message.localize(None)
+
+    def translate(self, language: Language = None, **kw: Any) -> str:
         return self.message.localize(language, **kw)
 
 
@@ -44,9 +51,11 @@ class EventKind(StrEnum):
     UNDONE = "undone"
     REDONE = "redone"
     FAILED = "failed"
+    DENIED = "denied"
     CLEARED = "cleared"
 
 
+@implementer(IEvent)
 @dataclass(frozen=True, slots=True)
 class Event:
     """What just happened to which command."""
@@ -60,8 +69,14 @@ class Event:
 Handler = Callable[[Event], None]
 
 
+@implementer(IInvoker)
 class Invoker:
-    """Executes commands against one context and keeps their history."""
+    """Executes commands against one context and keeps their history.
+
+    With a *policy*, every ``run`` first checks that *subject* may run the
+    command (``PermissionDeniedError`` otherwise, and a ``denied`` event).
+    ``subject`` can be reassigned at any time — per request, per session.
+    """
 
     def __init__(
         self,
@@ -69,10 +84,14 @@ class Invoker:
         registry: Registry | None = None,
         *,
         limit: int | None = None,
+        policy: Policy | None = None,
+        subject: Any = None,
     ) -> None:
         self.context = context
         self.registry = registry
         self.limit = limit
+        self.policy = policy
+        self.subject = subject
         self._undo: list[BaseCommand] = []
         self._redo: list[BaseCommand] = []
         self._handlers: list[Handler] = []
@@ -98,7 +117,7 @@ class Invoker:
     def create(self, id: str, **params: Any) -> BaseCommand:
         """Instantiate command *id* from the registry, bound to this context."""
         if self.registry is None:
-            raise HistoryError(_("This invoker has no registry"))
+            raise HistoryError(_("invoker_without_registry"))
         return self.registry.create(id, self.context, **params)
 
     def run(self, command: BaseCommand | str, /, **params: Any) -> Any:
@@ -107,6 +126,11 @@ class Invoker:
             command = self.create(command, **params)
         elif params:
             raise TypeError("parameters are only accepted with a registry id")
+        required = command.permission
+        if self.policy is not None and not self.policy.permits(self.subject, required, command):
+            denied = PermissionDeniedError(command.id, required, self.subject)
+            self._emit(EventKind.DENIED, command, denied)
+            raise denied
         try:
             result = command.execute()
         except BaseException as error:
@@ -121,7 +145,7 @@ class Invoker:
 
     def undo(self) -> Any:
         if not self._undo:
-            raise HistoryError(_("Nothing to undo"))
+            raise HistoryError(_("nothing_to_undo"))
         command = self._undo[-1]
         try:
             value = command.undo()
@@ -135,7 +159,7 @@ class Invoker:
 
     def redo(self) -> Any:
         if not self._redo:
-            raise HistoryError(_("Nothing to redo"))
+            raise HistoryError(_("nothing_to_redo"))
         command = self._redo[-1]
         try:
             value = command.redo()

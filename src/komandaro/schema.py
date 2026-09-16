@@ -28,9 +28,38 @@ from typing import Any
 
 from zope.interface.interface import InterfaceClass
 from zope.schema import getFieldsInOrder
-from zope.schema.interfaces import IChoice, IField, ValidationError
+from zope.schema.interfaces import (
+    ConstraintNotSatisfied,
+    IChoice,
+    IField,
+    InvalidValue,
+    NotUnique,
+    RequiredMissing,
+    TooBig,
+    TooLong,
+    TooShort,
+    TooSmall,
+    ValidationError,
+    WrongContainedType,
+    WrongType,
+)
 
-from komandaro.i18n import Message, _
+from komandaro.i18n import Language, Message, _
+
+#: Message identifiers for the usual ``zope.schema`` validation errors, most
+#: specific first (``isinstance`` walk).  Unknown errors get ``field_invalid``.
+FIELD_ERRORS: tuple[tuple[type[ValidationError], Message], ...] = (
+    (TooShort, _("field_too_short")),
+    (TooLong, _("field_too_long")),
+    (TooSmall, _("field_too_small")),
+    (TooBig, _("field_too_big")),
+    (WrongContainedType, _("field_wrong_contained_type")),
+    (WrongType, _("field_wrong_type")),
+    (RequiredMissing, _("field_required_missing")),
+    (ConstraintNotSatisfied, _("field_constraint_not_satisfied")),
+    (NotUnique, _("field_not_unique")),
+    (InvalidValue, _("field_invalid_value")),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,9 +71,9 @@ class ParameterIssue:
     params: dict[str, Any] = field(default_factory=dict)
 
     def __str__(self) -> str:
-        return str(self.message) % self.params if self.params else str(self.message)
+        return self.message.localize(None, **self.params)
 
-    def translate(self, language: str | list[str] | None = None, **kw: Any) -> str:
+    def translate(self, language: Language = None, **kw: Any) -> str:
         return self.message.localize(language, **kw, **self.params)
 
 
@@ -62,7 +91,7 @@ class ParameterError(ValueError):
     def __str__(self) -> str:
         return "; ".join(f"{issue.name}: {issue}" for issue in self.issues)
 
-    def translate(self, language: str | list[str] | None = None, **kw: Any) -> dict[str, str]:
+    def translate(self, language: Language = None, **kw: Any) -> dict[str, str]:
         """Return ``{parameter: localised message}``."""
         return {issue.name: issue.translate(language, **kw) for issue in self.issues}
 
@@ -132,15 +161,13 @@ def validate(schema: InterfaceClass | None, params: Mapping[str, Any]) -> dict[s
     known = dict(fields(schema))
     for name in params:
         if name not in known:
-            issues.append(ParameterIssue(name, _("Unknown parameter %(name)s"), {"name": name}))
+            issues.append(ParameterIssue(name, _("unknown_parameter"), {"name": name}))
     result: dict[str, Any] = {}
     for name, fld in known.items():
         if name in params:
             value = params[name]
         elif fld.required:
-            issues.append(
-                ParameterIssue(name, _("Missing required parameter %(name)s"), {"name": name})
-            )
+            issues.append(ParameterIssue(name, _("missing_parameter"), {"name": name}))
             continue
         else:
             value = fld.default
@@ -153,8 +180,8 @@ def validate(schema: InterfaceClass | None, params: Mapping[str, Any]) -> dict[s
             issues.append(
                 ParameterIssue(
                     name,
-                    _("Invalid value for parameter %(name)s: %(error)s"),
-                    {"name": name, "error": _describe_error(error)},
+                    _("invalid_parameter"),
+                    {"name": name, "error": describe_error(error)},
                 )
             )
             continue
@@ -164,10 +191,12 @@ def validate(schema: InterfaceClass | None, params: Mapping[str, Any]) -> dict[s
     return result
 
 
-def _describe_error(error: ValidationError) -> str:
-    doc = getattr(error, "doc", None)
-    text = doc() if callable(doc) else type(error).__name__
-    return str(text)
+def describe_error(error: ValidationError) -> Message:
+    """The translatable message identifier for a ``zope.schema`` error."""
+    for cls, message in FIELD_ERRORS:
+        if isinstance(error, cls):
+            return message
+    return _("field_invalid")
 
 
 def is_schema(obj: Any) -> bool:
@@ -176,11 +205,13 @@ def is_schema(obj: Any) -> bool:
 
 
 __all__ = [
+    "FIELD_ERRORS",
     "IField",
     "ParameterError",
     "ParameterInfo",
     "ParameterIssue",
     "describe",
+    "describe_error",
     "fields",
     "is_schema",
     "validate",

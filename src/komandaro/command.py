@@ -7,7 +7,7 @@ from typing import Any
 
 from zope.interface import directlyProvides, implementer
 
-from komandaro.i18n import Message, _
+from komandaro.i18n import Language, Message, _
 from komandaro.interfaces import (
     ICommand,
     IExecutedCommand,
@@ -35,9 +35,10 @@ class CommandStateError(RuntimeError):
         self.params = params
 
     def __str__(self) -> str:
-        return str(self.message) % self.params if self.params else str(self.message)
+        """The message in the process language (see ``komandaro.i18n``)."""
+        return self.message.localize(None, **self.params)
 
-    def translate(self, language: str | Iterable[str] | None = None, **kw: Any) -> str:
+    def translate(self, language: Language = None, **kw: Any) -> str:
         """Return the error message in *language*."""
         return self.message.localize(language, **kw, **self.params)
 
@@ -55,7 +56,9 @@ class BaseCommand:
       (defaults to the lower-cased class name without ``Command``);
     * ``name`` / ``description`` — translatable labels;
     * ``schema`` — an interface of ``zope.schema`` fields describing the
-      accepted keyword parameters, or ``None`` to accept anything.
+      accepted keyword parameters, or ``None`` to accept anything;
+    * ``permission`` — what a subject must hold to run the command, or
+      ``None`` for a public command (see ``komandaro.permissions``).
 
     Instances are created with the context and the parameters:
     ``cmd = Add(context, amount=5)``.  Parameters are validated against
@@ -68,9 +71,10 @@ class BaseCommand:
     """
 
     id: str = ""
-    name: str = _("Unnamed command")
+    name: str = _("unnamed_command")
     description: str = ""
     schema: Any = None
+    permission: Any = None
 
     def __init__(self, context: Any, **params: Any) -> None:
         self.context = context
@@ -88,20 +92,20 @@ class BaseCommand:
     # -- public life cycle ---------------------------------------------------
 
     def execute(self) -> Any:
-        self._require(ICommand, _("Command %(name)s has already been executed"))
+        self._require(ICommand, _("command_already_executed"))
         self.memento = self._snapshot()
         self.result = self._do()
         directlyProvides(self, IExecutedCommand)
         return self.result
 
     def undo(self) -> Any:
-        self._require(IExecutedCommand, _("Command %(name)s cannot be undone in its current state"))
+        self._require(IExecutedCommand, _("command_not_undoable"))
         value = self._undo()
         directlyProvides(self, IUndoneCommand)
         return value
 
     def redo(self) -> Any:
-        self._require(IUndoneCommand, _("Command %(name)s cannot be redone in its current state"))
+        self._require(IUndoneCommand, _("command_not_redoable"))
         self.result = self._redo()
         directlyProvides(self, IExecutedCommand)
         return self.result
@@ -122,7 +126,7 @@ class BaseCommand:
 
     def _require(self, state: Any, message: Message) -> None:
         if not state.providedBy(self):
-            raise CommandStateError(message, name=str(self.name))
+            raise CommandStateError(message, name=self.name)
 
     # -- to be implemented by subclasses -------------------------------------
 
@@ -253,19 +257,19 @@ class Macro(BaseCommand):
         if description is not None:
             self.description = description
 
-    name: str = _("Macro")
-    description: str = _("A sequence of commands executed as one")
+    name: str = _("macro_label")
+    description: str = _("macro_description")
 
     @property
     def commands(self) -> tuple[BaseCommand, ...]:
         return tuple(self._commands)
 
     def add(self, command: BaseCommand) -> None:
-        self._require(ICommand, _("Macro %(name)s cannot be modified once executed"))
+        self._require(ICommand, _("macro_frozen"))
         self._commands.append(command)
 
     def remove(self, command: BaseCommand) -> None:
-        self._require(ICommand, _("Macro %(name)s cannot be modified once executed"))
+        self._require(ICommand, _("macro_frozen"))
         self._commands.remove(command)
 
     def _run(self, step: Callable[[BaseCommand], Any]) -> list[Any]:

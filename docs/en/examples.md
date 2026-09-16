@@ -183,13 +183,14 @@ bob is frozen
 ... except ParameterError as error:
 ...     for name, message in sorted(error.translate("fr").items()):
 ...         print(name, "->", message)
-amount -> Valeur invalide pour le paramètre amount : Value is too small
+amount -> Valeur invalide pour le paramètre amount : Valeur trop petite
 target -> Paramètre obligatoire manquant : target
 
 ```
 
-(The field-level text "Value is too small" comes from `zope.schema`, which
-has its own catalogues; wiring them is on the roadmap.)
+The field-level part ("Valeur trop petite") is a `zope.schema` validation
+error mapped to a Komandaro message identifier (`field_too_small`), so it is
+translated like everything else.
 
 ## An audit log from invoker events
 

@@ -77,6 +77,19 @@ def test_missing_required_parameter(calc, localedir):
     }
 
 
+def test_field_errors_are_translated_by_identifier(calc, localedir):
+    with pytest.raises(ParameterError) as info:
+        Add(calc, amount=0, mode="wrong")
+    by_name = {i.name: i for i in info.value.issues}
+    assert by_name["amount"].params["error"] == "field_too_small"
+    assert str(by_name["amount"]) == "Invalid value for parameter amount: Value is too small"
+    assert (
+        by_name["amount"].translate("fr")
+        == "Valeur invalide pour le paramètre amount : Valeur trop petite"
+    )
+    assert by_name["mode"].translate("eo").endswith("Limigo ne plenumita")
+
+
 def test_command_id_defaults_and_overrides():
     assert Add.id == "add"
     Plain = SimpleCommandFactory(add, undo_add, "Add stuff")

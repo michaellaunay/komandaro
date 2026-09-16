@@ -11,23 +11,30 @@ from komandaro.command import (
     SimpleCommand,
     SimpleCommandFactory,
 )
-from komandaro.i18n import Message, make_gettext, translate
+from komandaro.i18n import Message, bind_domain, make_gettext, translate
 from komandaro.interfaces import (
     IBaseCommand,
     ICommand,
     IContext,
+    IEntry,
+    IEvent,
     IExecutedCommand,
+    IInvoker,
     IMacro,
+    IPermissionPolicy,
+    IRegistry,
     ISimpleCommand,
     IUndoneCommand,
 )
 from komandaro.invoker import Event, EventKind, HistoryError, Invoker
+from komandaro.permissions import AllowAll, PermissionDeniedError, SubjectPermissionsPolicy
 from komandaro.registry import Entry, Registry, RegistryError
 from komandaro.schema import ParameterError, ParameterInfo, ParameterIssue, describe, validate
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 
 __all__ = [
+    "AllowAll",
     "BaseCommand",
     "CommandStateError",
     "Entry",
@@ -37,8 +44,13 @@ __all__ = [
     "IBaseCommand",
     "ICommand",
     "IContext",
+    "IEntry",
+    "IEvent",
     "IExecutedCommand",
+    "IInvoker",
     "IMacro",
+    "IPermissionPolicy",
+    "IRegistry",
     "ISimpleCommand",
     "IUndoneCommand",
     "Invoker",
@@ -47,11 +59,14 @@ __all__ = [
     "ParameterError",
     "ParameterInfo",
     "ParameterIssue",
+    "PermissionDeniedError",
     "Registry",
     "RegistryError",
     "SimpleCommand",
     "SimpleCommandFactory",
+    "SubjectPermissionsPolicy",
     "__version__",
+    "bind_domain",
     "describe",
     "make_gettext",
     "translate",

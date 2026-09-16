@@ -10,14 +10,17 @@ Run the tests with ``python -m pytest tests/test_examples.py``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from zope.interface import Interface
 from zope.schema import Int, List, TextLine
 
 from komandaro import BaseCommand, Macro, Registry, SimpleCommandFactory, make_gettext
 
-# The application has its own gettext domain, separate from the library's.
-_ = make_gettext("notebook")
+# The application has its own gettext domain, separate from the library's, and
+# binds it to the directory of its compiled catalogues once and for all.  Its
+# messages are identifiers; the English wording lives in locale/en.
+_ = make_gettext("notebook", Path(__file__).parent / "locale")
 
 
 # --------------------------------------------------------------------------
@@ -41,20 +44,20 @@ class Notebook:
 
 
 class IText(Interface):
-    text = TextLine(title=_("Text"), description=_("Content of the note"), min_length=1)
+    text = TextLine(title=_("text_label"), description=_("text_description"), min_length=1)
 
 
 class IPosition(Interface):
-    position = Int(title=_("Position"), description=_("1-based position of the note"), min=1)
+    position = Int(title=_("position_label"), description=_("position_description"), min=1)
 
 
 class IRename(Interface):
-    position = Int(title=_("Position"), min=1)
-    text = TextLine(title=_("New text"), min_length=1)
+    position = Int(title=_("position_label"), min=1)
+    text = TextLine(title=_("new_text_label"), min_length=1)
 
 
 class IImport(Interface):
-    notes = List(title=_("Notes"), value_type=TextLine(), min_length=1)
+    notes = List(title=_("notes_label"), value_type=TextLine(), min_length=1)
 
 
 # --------------------------------------------------------------------------
@@ -71,7 +74,7 @@ def undo_add(notebook: Notebook, position: int, text: str) -> None:
     del notebook.notes[position - 1]
 
 
-Add = SimpleCommandFactory(add, undo_add, _("Add a note"), schema=IText, id="add")
+Add = SimpleCommandFactory(add, undo_add, _("add_note"), schema=IText, id="add")
 
 
 def remove(notebook: Notebook, position: int) -> str:
@@ -84,7 +87,7 @@ def undo_remove(notebook: Notebook, removed: str, position: int) -> None:
     notebook.notes.insert(position - 1, removed)
 
 
-Remove = SimpleCommandFactory(remove, undo_remove, _("Remove a note"), schema=IPosition, id="rm")
+Remove = SimpleCommandFactory(remove, undo_remove, _("remove_note"), schema=IPosition, id="rm")
 
 
 # --------------------------------------------------------------------------
@@ -106,7 +109,7 @@ def snapshot_rename(notebook: Notebook, position: int, text: str) -> str:
 
 
 Rename = SimpleCommandFactory(
-    rename, undo_rename, _("Rename a note"), schema=IRename, snapshot=snapshot_rename, id="mv"
+    rename, undo_rename, _("rename_note"), schema=IRename, snapshot=snapshot_rename, id="mv"
 )
 
 
@@ -114,8 +117,8 @@ class Clear(BaseCommand):
     """The same idea written as a class instead of with the factory."""
 
     id = "clear"
-    name = _("Clear the notebook")
-    description = _("Remove every note")
+    name = _("clear_notebook")
+    description = _("clear_notebook_description")
     schema = None
 
     def _snapshot(self) -> list[str]:
@@ -137,8 +140,8 @@ class Clear(BaseCommand):
 
 class Import(Macro):
     id = "import"
-    name = _("Import notes")
-    description = _("Add several notes as one action")
+    name = _("import_notes")
+    description = _("import_notes_description")
     schema = IImport
 
     def __init__(self, context: Notebook, **params: object) -> None:

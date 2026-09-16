@@ -17,6 +17,7 @@ Abstract base of every command. Class attributes describe the command:
 | `name: Message` | translatable short name |
 | `description: Message` | translatable description |
 | `schema: Interface \| None` | parameter schema; `None` accepts anything |
+| `permission: Any` | what a subject must hold to run the command; `None` = public |
 
 Instance attributes: `context`, `params` (validated), `result` (last
 execute/redo), `memento` (value of `_snapshot()`, taken once).
@@ -62,11 +63,16 @@ localedir=None)` the localised text.
 
 ## Interfaces — `komandaro.interfaces`
 
-`IContext`, `IBaseCommand` (name, description, context, result).
+`IContext` (optional marker, never checked), `IBaseCommand` (`id`, `name`,
+`description`, `schema`, `permission`, `context`, `params`, `result`,
+`memento`).
 States, provided directly on instances: `ICommand` (`execute`),
 `IExecutedCommand` (`undo`), `IUndoneCommand` (`redo`).
-Kinds, declared on classes: `ISimpleCommand`, `IMacro` (`commands`,
-`add`, `remove`).
+Kinds, declared on classes: `ISimpleCommand` (`do_it`, `undo_it`,
+`snapshot_it`), `IMacro` (`commands`, `add`, `remove`).
+Collaborators: `IEntry`, `IRegistry`, `IInvoker`, `IEvent`,
+`IPermissionPolicy` (`implies`, `permits`). Every implementation is
+verified against its interface by `tests/test_interfaces.py`.
 
 ## Schemas — `komandaro.schema`
 
@@ -84,6 +90,12 @@ Kinds, declared on classes: `ISimpleCommand`, `IMacro` (`commands`,
 `ParameterError(issues)` (`ValueError`): `issues: list[ParameterIssue]`;
 `translate(language) → {name: text}`.
 `ParameterIssue`: `name`, `message`, `params`; `translate(language)`.
+`describe_error(error) → Message` maps a `zope.schema` validation error to
+an identifier (`FIELD_ERRORS`: `field_too_short`, `field_too_long`,
+`field_too_small`, `field_too_big`, `field_wrong_contained_type`,
+`field_wrong_type`, `field_required_missing`,
+`field_constraint_not_satisfied`, `field_not_unique`, `field_invalid_value`;
+anything else `field_invalid`).
 
 ## Registry — `komandaro.registry`
 
@@ -97,17 +109,18 @@ Kinds, declared on classes: `ISimpleCommand`, `IMacro` (`commands`,
 | `load_entry_points(group, *, registry_group=None) → list[Entry]` | register classes from `importlib.metadata` entry points; the entry-point name is the id |
 | `get(id) → Entry`, `registry[id] → class`, `id in registry`, `len`, iteration (ordered) | lookup |
 | `ids`, `groups → {group: [Entry]}`, `find(group=None, tag=None)` | browsing |
+| `allowed(policy, subject) → list[Entry]` | entries the subject may run (all when `policy` is None) |
 | `create(id, context, **params) → BaseCommand` | instantiate |
 
 `Entry` (frozen dataclass): `id`, `command`, `group`, `tags`; properties
-`name`, `description`, `parameters` (= `describe(command.schema)`).
+`name`, `description`, `permission`, `parameters` (= `describe(command.schema)`).
 
 `RegistryError(message, **params)` (`LookupError`): unknown or duplicate
 id; `translate(language)`.
 
 ## Invoker — `komandaro.invoker`
 
-### `Invoker(context, registry=None, *, limit=None)`
+### `Invoker(context, registry=None, *, limit=None, policy=None, subject=None)`
 
 | member | role |
 |---|---|
@@ -118,29 +131,52 @@ id; `translate(language)`.
 | `subscribe(handler) → unsubscribe` | observe `Event`s |
 | `history`, `undone` (tuples, oldest first), `can_undo`, `can_redo`, `len`, iteration | introspection |
 
-`limit` caps the undo stack (oldest entries are dropped).
+`limit` caps the undo stack (oldest entries are dropped). With a `policy`,
+`run` first checks `policy.permits(subject, command.permission, command)`
+and raises `PermissionDeniedError` (event `denied`) when refused; `subject`
+is a plain attribute you may reassign per request or session. Undo and
+redo are never re-checked.
 
 `Event` (frozen dataclass): `kind: EventKind`, `command`, `error`, `at`
-(UTC). `EventKind`: `EXECUTED`, `UNDONE`, `REDONE`, `FAILED`, `CLEARED`.
+(UTC). `EventKind`: `EXECUTED`, `UNDONE`, `REDONE`, `FAILED`, `DENIED`,
+`CLEARED`.
 
 A failed `run` is not recorded; a failed `undo`/`redo` leaves the command
 where it was. `HistoryError` (`RuntimeError`) when there is nothing to
 undo/redo or no registry; `translate(language)`.
 
+## Permissions — `komandaro.permissions`
+
+| name | role |
+|---|---|
+| `SubjectPermissionsPolicy(held=default_held, implies=default_implies)` | the default policy: permits when one permission the subject holds implies the required one |
+| `AllowAll()` | permits everything |
+| `default_held(subject)` | `None` → nothing; `subject.permissions` if present; a bare iterable, flag, name or class → itself |
+| `default_implies(held, required)` | equality; `held & required == required` for `Flag`s; `issubclass(held, required)` for classes (diamond inheritance works); `isinstance(held, required)` |
+| `PermissionDeniedError(command_id, permission, subject=None)` | raised by the invoker; `translate(language)` |
+| `describe_permission(permission) → str` | readable name of a permission of any model |
+| `Policy` | `typing.Protocol` mirror of `IPermissionPolicy` for type checkers |
+
+Permissions themselves are opaque to Komandaro: strings, `IntFlag` members,
+classes of a hierarchy — the policy alone gives them meaning.
+
 ## Internationalisation — `komandaro.i18n`
 
 | name | role |
 |---|---|
-| `Message(msgid, domain=DOMAIN)` | lazy translatable `str` subclass; `localize(language, localedir=None, **params)` |
-| `make_gettext(domain) → _` | build a marker function for your domain |
+| `Message(msgid, domain=DOMAIN)` | lazy translatable `str` subclass; `localize(language, localedir=None, **params)` substitutes `${name}` placeholders and translates `Message` parameters first |
+| `make_gettext(domain, localedir=None) → _` | build a marker function for your domain, binding its catalogue directory |
+| `bind_domain(domain, localedir)` | declare where a domain's catalogues live (`LOCALEDIRS`) |
 | `_` | the library's own marker (domain `komandaro`) |
-| `translate(message, language=None, localedir=None) → str` | translate a `Message` (plain `str` returned unchanged); falls back to the message id |
-| `DOMAIN`, `DEFAULT_LOCALEDIR` | `"komandaro"`, the package's `locale/` directory |
+| `translate(message, language=None, localedir=None) → str` | translate a `Message` (plain `str` returned unchanged); tries the language, then English, then returns the identifier |
+| `environment_languages(environ=None) → list[str]` | languages of the process (`LANGUAGE`, `LC_ALL`, `LC_MESSAGES`, `LANG`) |
+| `DOMAIN`, `DEFAULT_LOCALEDIR`, `FALLBACK_LANGUAGE`, `LOCALEDIRS` | `"komandaro"`, the package's `locale/`, `"en"`, the domain → directory map |
 
-`language` may be a code (`"fr"`), a preference list (`["fr_FR", "en"]`)
-or `None` (process environment). Catalogues are
-`<localedir>/<lang>/LC_MESSAGES/<domain>.mo`, compiled from `.po` files
-with `pybabel compile`.
+Message ids are `snake_case` identifiers (`command_already_executed`);
+the English text lives in the `en` catalogue. `language` may be a code
+(`"fr"`), a preference list (`["fr_FR", "de"]`) or `None` (process
+environment). Catalogues are `<localedir>/<lang>/LC_MESSAGES/<domain>.mo`,
+compiled from `.po` files with `pybabel compile`.
 
 ## Errors at a glance
 
@@ -150,6 +186,7 @@ with `pybabel compile`.
 | `ParameterError` | command instantiation with bad parameters | `ValueError` |
 | `RegistryError` | unknown or duplicate id | `LookupError` |
 | `HistoryError` | nothing to undo/redo, no registry | `RuntimeError` |
+| `PermissionDeniedError` | the policy refused a command | `RuntimeError` |
 
-All four have `translate(language)`; `str()` gives the untranslated
-message.
+All five have `translate(language)`; `str()` gives the message in the
+language of the process (English when it has none).
