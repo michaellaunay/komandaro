@@ -42,7 +42,7 @@ class CommandStateError(RuntimeError):
 
     def translate(self, language: Language = None, **kw: Any) -> str:
         """Return the error message in *language*."""
-        return self.message.localize(language, **kw, **self.params)
+        return self.message.localize(language, **(kw | self.params))
 
 
 class BaseCommand:

@@ -9,13 +9,17 @@ from komandaro import SimpleCommandFactory, describe, validate
 class IDefaults(Interface):
     labels = List(value_type=TextLine(), required=False, default=[])
     data = Dict(
-        key_type=TextLine(), value_type=List(value_type=Int()),
-        required=False, default={"nested": [1]},
+        key_type=TextLine(),
+        value_type=List(value_type=Int()),
+        required=False,
+        default={"nested": [1]},
     )
 
 
 def test_static_container_defaults_are_deeply_isolated(calc):
-    cls = SimpleCommandFactory(lambda c, **kw: None, lambda c, r, **kw: None, "defaults", schema=IDefaults)
+    cls = SimpleCommandFactory(
+        lambda c, **kw: None, lambda c, r, **kw: None, "defaults", schema=IDefaults
+    )
     first, second = cls(calc), cls(calc)
     first.params["labels"].append("changed")
     first.params["data"]["nested"].append(2)
@@ -59,6 +63,27 @@ def test_factory_owns_its_default_creation_policy():
 
     result = validate(IFactory, {})
     assert result["labels"] is created[-1]
+
+
+def test_parameter_error_reuses_language_generator_for_every_issue():
+    import pytest
+
+    from komandaro import ParameterError
+
+    with pytest.raises(ParameterError) as caught:
+        validate(IDefaults, {"first_unknown": 1, "second_unknown": 2})
+    translated = caught.value.translate(iter(["fr"]))
+    assert all(text.startswith("Paramètre inconnu") for text in translated.values())
+
+
+def test_parameter_issue_accepts_overlapping_formatting_keys():
+    import pytest
+
+    from komandaro import ParameterError
+
+    with pytest.raises(ParameterError) as caught:
+        validate(IDefaults, {"unknown": 1})
+    assert "unknown" in caught.value.issues[0].translate("en", name="ignored")
 
 
 def test_choice_container_default_keeps_vocabulary_identity():

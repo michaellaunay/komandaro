@@ -78,11 +78,13 @@ class Message(str):
         translated first, in the same language.  (Named ``localize`` because
         ``str.translate`` already exists.)
         """
-        text = translate(self, language, localedir)
+        # Materialize one-shot iterables once for the outer and nested messages.
+        languages = _languages(language)
+        text = translate(self, languages, localedir)
         if not params:
             return text
         values = {
-            key: translate(value, language, localedir) if isinstance(value, Message) else value
+            key: translate(value, languages, localedir) if isinstance(value, Message) else value
             for key, value in params.items()
         }
         return Template(text).safe_substitute(values)
@@ -134,8 +136,18 @@ def environment_languages(environ: Mapping[str, str] | None = None) -> list[str]
     for name in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
         value = env.get(name)
         if value:
-            return [lang for lang in value.split(":") if lang and lang not in ("C", "POSIX")]
+            return _preferences(value.split(":"))
     return []
+
+
+def _preferences(languages: Iterable[str]) -> list[str]:
+    # gettext stops searching at C, including normalized C.UTF-8. Remove
+    # these "no preference" locales so they cannot suppress English fallback.
+    return [
+        lang.strip()
+        for lang in languages
+        if lang.strip() and lang.strip().split(".", 1)[0].split("@", 1)[0] not in {"C", "POSIX"}
+    ]
 
 
 def _languages(language: Language) -> list[str]:
@@ -145,6 +157,7 @@ def _languages(language: Language) -> list[str]:
         languages = [language]
     else:
         languages = list(language)
+    languages = _preferences(languages)
     if FALLBACK_LANGUAGE not in languages:
         languages.append(FALLBACK_LANGUAGE)
     return languages

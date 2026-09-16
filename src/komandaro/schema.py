@@ -75,7 +75,7 @@ class ParameterIssue:
         return self.message.localize(None, **self.params)
 
     def translate(self, language: Language = None, **kw: Any) -> str:
-        return self.message.localize(language, **kw, **self.params)
+        return self.message.localize(language, **(kw | self.params))
 
 
 class ParameterError(ValueError):
@@ -94,7 +94,8 @@ class ParameterError(ValueError):
 
     def translate(self, language: Language = None, **kw: Any) -> dict[str, str]:
         """Return ``{parameter: localised message}``."""
-        return {issue.name: issue.translate(language, **kw) for issue in self.issues}
+        languages = tuple(language) if language is not None and not isinstance(language, str) else language
+        return {issue.name: issue.translate(languages, **kw) for issue in self.issues}
 
 
 @dataclass(frozen=True, slots=True)

@@ -45,7 +45,7 @@ class RegistryError(LookupError):
         return self.message.localize(None, **self.params)
 
     def translate(self, language: Language = None, **kw: Any) -> str:
-        return self.message.localize(language, **kw, **self.params)
+        return self.message.localize(language, **(kw | self.params))
 
 
 @implementer(IEntry)

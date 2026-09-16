@@ -48,7 +48,7 @@ class PermissionDeniedError(RuntimeError):
         return self.message.localize(None, **self.params)
 
     def translate(self, language: Language = None, **kw: Any) -> str:
-        return self.message.localize(language, **kw, **self.params)
+        return self.message.localize(language, **(kw | self.params))
 
 
 def describe_permission(permission: Any) -> str:
