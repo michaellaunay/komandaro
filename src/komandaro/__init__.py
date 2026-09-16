@@ -32,7 +32,7 @@ from komandaro.permissions import AllowAll, PermissionDeniedError, SubjectPermis
 from komandaro.registry import Entry, Registry, RegistryError
 from komandaro.schema import ParameterError, ParameterInfo, ParameterIssue, describe, validate
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "AllowAll",

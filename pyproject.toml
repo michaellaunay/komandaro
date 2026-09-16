@@ -4,22 +4,32 @@ build-backend = "hatchling.build"
 
 [project]
 name = "komandaro"
-version = "0.3.0"
-description = "Undoable Command pattern toolkit: write logic once, expose it as CLI, HTML, TUI or API."
+version = "0.4.0"
+description = "Python Command pattern toolkit with undo/redo, macros, schemas, permissions and internationalisation."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
 authors = [{ name = "Michaël Launay" }]
-keywords = ["command", "pattern", "undo", "redo", "cli", "html", "zope.interface", "gettext"]
+keywords = [
+  "command-pattern",
+  "undo",
+  "redo",
+  "macros",
+  "schemas",
+  "permissions",
+  "i18n",
+  "gettext",
+  "zope.interface",
+]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Typing :: Typed",
 ]
@@ -40,6 +50,7 @@ Homepage = "https://github.com/michaellaunay/komandaro"
 Repository = "https://github.com/michaellaunay/komandaro"
 Issues = "https://github.com/michaellaunay/komandaro/issues"
 Changelog = "https://github.com/michaellaunay/komandaro/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/michaellaunay/komandaro/tree/main/docs"
 
 [tool.hatch.build]
 # The custom hook compiles git-ignored catalogues for every build.

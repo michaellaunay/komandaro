@@ -34,8 +34,9 @@ pour autant totalement verrouillées.
 
 ## Préparer la version
 
-Ne republiez pas 0.3.0. Choisissez une nouvelle version, modifiez `pyproject.toml`
-et `src/komandaro/__init__.py`, puis déplacez les entrées Unreleased du changelog.
+Choisissez une nouvelle version, mettez à jour `pyproject.toml`
+et `src/komandaro/__init__.py`, puis déplacez les entrées concernées du
+changelog depuis Unreleased vers la nouvelle version.
 Relisez les [changements de contrat](reliability.md) : contrôle d'undo/redo,
 identité des contextes, macros inutilisables et isolation des observateurs.
 

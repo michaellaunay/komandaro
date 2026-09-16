@@ -5,6 +5,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-16
+
 ### Security and compatibility
 - Reauthorize the current subject on run, undo and redo, including all built-in
   macro descendants; reject foreign contexts, repeated instances and cycles.
@@ -36,8 +38,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follo
   gates and installed-wheel smoke checks on Python 3.12, 3.13 and 3.14 before
   publishing; configuration alone is not a claim that these new jobs passed.
 - Align Ruff and pre-commit on 0.16.8; update French and English API, architecture,
-  tutorials, reliability and release documentation. Keep version 0.3.0 until
-  the maintainer selects the next release; do not republish the existing version.
+  tutorials, reliability and release documentation.
 
 ## [0.3.0] — 2026-09-16
 

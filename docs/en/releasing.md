@@ -32,8 +32,9 @@ and development dependencies are not a fully locked supply chain.
 
 ## Prepare a version
 
-Do not republish 0.3.0. Select a new version, update both `pyproject.toml` and
-`src/komandaro/__init__.py`, and move the relevant Unreleased changelog entries.
+Choose an unpublished version number, update both `pyproject.toml` and
+`src/komandaro/__init__.py`, and move the relevant changelog entries from
+Unreleased into the new release section.
 Review [migration and security changes](reliability.md), particularly authorization
 on undo/redo, context identity, broken macros and observer exception isolation.
 

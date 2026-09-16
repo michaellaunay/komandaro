@@ -275,7 +275,10 @@ Phase 1 (0.1) made the core sound: state machine, macros, i18n, tests and
 CI. Phase 2 (0.2) describes commands: parameter schemas, memento hook,
 registry, invoker with history and events; 0.3 consolidates it (verified
 interfaces, message identifiers, detachable permissions). Phase 3 adds the
-generated front ends (CLI, HTML, TUI, JSON/MCP). Details in
+generated front ends (CLI, HTML, TUI, JSON/MCP).
+Version 0.4 hardens macro recovery, authorization, history handling and
+package builds before the generated front ends are introduced.
+Details in
 [`docs/en/architecture.md`](https://github.com/michaellaunay/komandaro/blob/main/docs/en/architecture.md).
 
 ## Releasing
@@ -289,7 +292,10 @@ is done, a release is:
 # 1. bump `version` in pyproject.toml and __version__ in src/komandaro/__init__.py,
 #    add the CHANGELOG entry, commit
 # 2. tag and push
-git tag v0.2.1 && git push --tags
+# After committing the release changes and obtaining a green CI:
+version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+git tag -a "v$version" -m "Release $version"
+git push origin "v$version"
 ```
 
 The workflow refuses a tag that does not match `pyproject.toml`, runs the
